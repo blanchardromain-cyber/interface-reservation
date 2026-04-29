@@ -1,0 +1,3733 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Salle de Technologie – Réservation des Ressources | Collège Saint-Pierre</title>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<!-- Firebase Compat SDK (chargement synchrone, pas de race condition module/async) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+
+  :root {
+    --orange: #e8521c;
+    --green: #7ab648;
+    --blue: #3d8fb5;
+    --yellow: #f5c518;
+    --dark: #1a1a2e;
+    --mid: #2d3561;
+    --light-bg: #f4f6fb;
+    --card-bg: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e2640;
+    --muted: #6b7a99;
+    --radius: 14px;
+    --shadow: 0 4px 24px rgba(30,38,64,.08);
+    --shadow-lg: 0 8px 40px rgba(30,38,64,.15);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--light-bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--dark);
+    color: white;
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    box-shadow: 0 2px 16px rgba(0,0,0,.3);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    flex-wrap: wrap;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    padding: 0.8rem 0;
+  }
+
+  .header-left img {
+    height: 58px;
+    width: auto;
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,.4));
+  }
+
+  .header-title {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .header-title h1 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: .4px;
+    line-height: 1.2;
+  }
+
+  .header-title span {
+    font-size: .8rem;
+    color: var(--yellow);
+    font-weight: 500;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+    padding: 0.8rem 0;
+  }
+
+  .btn {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    font-size: .85rem;
+    padding: .5rem 1.2rem;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: all .2s;
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+  }
+
+  .btn-primary {
+    background: var(--orange);
+    color: white;
+  }
+  .btn-primary:hover { background: #c7451a; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(232,82,28,.35); }
+
+  .btn-secondary {
+    background: rgba(255,255,255,.12);
+    color: white;
+    border: 1px solid rgba(255,255,255,.2);
+  }
+  .btn-secondary:hover { background: rgba(255,255,255,.2); }
+
+  .btn-settings {
+    background: rgba(245,197,24,.15);
+    color: var(--yellow);
+    border: 1px solid rgba(245,197,24,.3);
+  }
+  .btn-settings:hover { background: rgba(245,197,24,.28); color: #ffe066; }
+
+  .btn-outline {
+    background: white;
+    color: var(--mid);
+    border: 1.5px solid var(--border);
+  }
+  .btn-outline:hover { border-color: var(--blue); color: var(--blue); }
+
+  /* MAIN */
+  main {
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 1.5rem 1.5rem 3rem;
+  }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    gap: .4rem;
+    background: white;
+    border-radius: 12px;
+    padding: .35rem;
+    border: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow);
+    flex-wrap: wrap;
+  }
+
+  .tab {
+    padding: .55rem 1.2rem;
+    border-radius: 8px;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    font-size: .875rem;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: var(--muted);
+    transition: all .2s;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+
+  .tab.active {
+    background: var(--mid);
+    color: white;
+    box-shadow: 0 2px 8px rgba(45,53,97,.3);
+  }
+
+  .tab:not(.active):hover { background: var(--light-bg); color: var(--text); }
+
+  /* PANELS */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* CALENDAR VIEW */
+  .calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: .8rem;
+  }
+
+  .calendar-nav {
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+  }
+
+  .calendar-nav h2 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    min-width: 200px;
+    text-align: center;
+  }
+
+  .nav-btn {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    border: 1.5px solid var(--border);
+    background: white;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .2s;
+    color: var(--mid);
+  }
+  .nav-btn:hover { border-color: var(--blue); color: var(--blue); background: #edf6fb; }
+
+  .view-toggle {
+    display: flex;
+    gap: .3rem;
+  }
+
+  .view-btn {
+    padding: .4rem .8rem;
+    border: 1.5px solid var(--border);
+    background: white;
+    border-radius: 7px;
+    font-size: .8rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'Outfit', sans-serif;
+    color: var(--muted);
+    transition: all .2s;
+  }
+  .view-btn.active { background: var(--mid); color: white; border-color: var(--mid); }
+
+  /* WEEK CALENDAR */
+  .week-grid {
+    background: white;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    overflow: auto;
+    box-shadow: var(--shadow);
+  }
+
+  .week-head {
+    display: grid;
+    grid-template-columns: 70px repeat(5, 1fr);
+    border-bottom: 2px solid var(--border);
+    background: var(--dark);
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+
+  .week-head-cell {
+    padding: .7rem .5rem;
+    text-align: center;
+    color: white;
+    font-family: 'Outfit', sans-serif;
+    font-size: .82rem;
+    font-weight: 600;
+    border-right: 1px solid rgba(255,255,255,.1);
+  }
+
+  .week-head-cell:last-child { border-right: none; }
+  .week-head-cell.day-col { font-size: .7rem; color: rgba(255,255,255,.7); }
+  .week-head-cell.today-col { background: rgba(232,82,28,.3); }
+
+  .week-body { display: grid; grid-template-columns: 70px repeat(5, 1fr); }
+
+  .time-label {
+    font-size: .72rem;
+    color: var(--muted);
+    padding: .6rem .3rem;
+    text-align: right;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+  }
+
+  .day-cell {
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    min-height: 56px;
+    padding: 3px;
+    position: relative;
+    cursor: pointer;
+    transition: background .15s;
+  }
+
+  .day-cell:last-child { border-right: none; }
+  .day-cell:hover { background: #f0f7ff; }
+
+  .day-cell.today-col { background: rgba(245,197,24,.06); }
+
+  .reservation-block {
+    border-radius: 6px;
+    padding: 3px 6px;
+    font-size: .72rem;
+    line-height: 1.3;
+    font-weight: 600;
+    margin-bottom: 2px;
+    cursor: pointer;
+    transition: opacity .15s, transform .15s;
+    overflow: hidden;
+  }
+
+  .reservation-block:hover { opacity: .85; transform: scale(1.02); }
+
+  .res-ultimaker { background: rgba(61,143,181,.18); border-left: 3px solid var(--blue); color: #1c5f7a; }
+  .res-bambu { background: rgba(122,182,72,.18); border-left: 3px solid var(--green); color: #3d6b18; }
+  .res-laser { background: rgba(232,82,28,.18); border-left: 3px solid var(--orange); color: #8b2a0a; }
+
+  /* RESOURCE CARDS */
+  .resources-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.2rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .resource-card {
+    background: white;
+    border-radius: var(--radius);
+    border: 1.5px solid var(--border);
+    padding: 1.4rem;
+    box-shadow: var(--shadow);
+    transition: all .2s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .resource-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: transparent; }
+
+  .resource-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+  }
+
+  .resource-card.blue::before { background: var(--blue); }
+  .resource-card.green::before { background: var(--green); }
+  .resource-card.orange::before { background: var(--orange); }
+
+  .resource-icon {
+    width: 52px; height: 52px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem;
+    margin-bottom: 1rem;
+  }
+
+  .resource-card.blue .resource-icon { background: rgba(61,143,181,.12); }
+  .resource-card.green .resource-icon { background: rgba(122,182,72,.12); }
+  .resource-card.orange .resource-icon { background: rgba(232,82,28,.12); }
+
+  .resource-name {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: .3rem;
+    color: var(--dark);
+  }
+
+  .resource-desc {
+    font-size: .82rem;
+    color: var(--muted);
+    margin-bottom: 1rem;
+    line-height: 1.5;
+  }
+
+  .resource-status {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: .78rem;
+    font-weight: 600;
+    padding: .25rem .7rem;
+    border-radius: 20px;
+  }
+
+  .status-available { background: rgba(122,182,72,.15); color: #3d6b18; }
+  .status-busy { background: rgba(232,82,28,.15); color: #8b2a0a; }
+
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .status-available .status-dot { background: var(--green); }
+  .status-busy .status-dot { background: var(--orange); }
+
+  /* MODAL */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(26,26,46,.6);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: white;
+    border-radius: 18px;
+    width: 100%;
+    max-width: 560px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    animation: modalIn .25s ease;
+  }
+
+  @keyframes modalIn {
+    from { transform: scale(.95) translateY(20px); opacity: 0; }
+    to   { transform: scale(1) translateY(0); opacity: 1; }
+  }
+
+  .modal-header {
+    padding: 1.4rem 1.6rem 1rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    background: var(--dark);
+    border-radius: 18px 18px 0 0;
+    color: white;
+  }
+
+  .modal-header h3 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+
+  .modal-header p { font-size: .82rem; color: rgba(255,255,255,.65); margin-top: .2rem; }
+
+  .modal-close {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(255,255,255,.15);
+    color: white;
+    cursor: pointer;
+    font-size: 1.1rem;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: background .2s;
+  }
+  .modal-close:hover { background: rgba(255,255,255,.25); }
+
+  .modal-body { padding: 1.4rem 1.6rem; }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .form-group {
+    margin-bottom: 1rem;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: .8rem;
+    font-weight: 600;
+    font-family: 'Outfit', sans-serif;
+    color: var(--muted);
+    margin-bottom: .35rem;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+
+  .form-control {
+    width: 100%;
+    padding: .6rem .85rem;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: .9rem;
+    color: var(--text);
+    background: white;
+    transition: border-color .2s, box-shadow .2s;
+    outline: none;
+  }
+
+  .form-control:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(61,143,181,.15);
+  }
+
+  select.form-control { cursor: pointer; }
+
+  .checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    padding: .6rem;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    background: var(--light-bg);
+  }
+
+  .checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    cursor: pointer;
+    font-size: .9rem;
+  }
+
+  .checkbox-item input[type="checkbox"] {
+    width: 16px; height: 16px;
+    accent-color: var(--blue);
+    cursor: pointer;
+  }
+
+  .modal-footer {
+    padding: 1rem 1.6rem 1.4rem;
+    display: flex;
+    gap: .7rem;
+    justify-content: flex-end;
+    border-top: 1px solid var(--border);
+  }
+
+  .btn-cancel {
+    background: var(--light-bg);
+    color: var(--muted);
+    border: 1.5px solid var(--border);
+  }
+  .btn-cancel:hover { background: #e8eaf0; color: var(--text); }
+
+  /* RESERVATIONS LIST */
+  .list-controls {
+    display: flex;
+    gap: .8rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .search-input {
+    flex: 1;
+    min-width: 200px;
+    padding: .55rem 1rem;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: .9rem;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .search-input:focus { border-color: var(--blue); }
+
+  .filter-select {
+    padding: .55rem .8rem;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: .85rem;
+    background: white;
+    cursor: pointer;
+    color: var(--text);
+    outline: none;
+  }
+
+  .res-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+  }
+
+  .res-table thead {
+    background: var(--dark);
+    color: white;
+  }
+
+  .res-table th {
+    padding: .75rem 1rem;
+    text-align: left;
+    font-family: 'Outfit', sans-serif;
+    font-size: .8rem;
+    font-weight: 600;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+  }
+
+  .res-table td {
+    padding: .8rem 1rem;
+    border-bottom: 1px solid var(--border);
+    font-size: .875rem;
+    vertical-align: middle;
+  }
+
+  .res-table tbody tr:hover { background: #f7f9fc; }
+  .res-table tbody tr:last-child td { border-bottom: none; }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .2rem .65rem;
+    border-radius: 20px;
+    font-size: .75rem;
+    font-weight: 600;
+  }
+
+  .badge-blue { background: rgba(61,143,181,.15); color: #1c5f7a; }
+  .badge-green { background: rgba(122,182,72,.15); color: #3d6b18; }
+  .badge-orange { background: rgba(232,82,28,.15); color: #8b2a0a; }
+  .badge-yellow { background: rgba(245,197,24,.2); color: #7a5e00; }
+
+  .action-btns { display: flex; gap: .4rem; }
+
+  .icon-btn {
+    width: 30px; height: 30px;
+    border-radius: 7px;
+    border: 1.5px solid var(--border);
+    background: white;
+    cursor: pointer;
+    font-size: .85rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+    color: var(--muted);
+  }
+  .icon-btn:hover.edit { border-color: var(--blue); color: var(--blue); background: #edf6fb; }
+  .icon-btn:hover.del { border-color: var(--orange); color: var(--orange); background: #fdf1ed; }
+
+  /* STATS */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .stat-card {
+    background: white;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    padding: 1.2rem 1.4rem;
+    box-shadow: var(--shadow);
+  }
+
+  .stat-card .label {
+    font-size: .78rem;
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: .4rem;
+  }
+
+  .stat-card .value {
+    font-family: 'Outfit', sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--dark);
+    line-height: 1;
+  }
+
+  .stat-card .sub {
+    font-size: .78rem;
+    color: var(--muted);
+    margin-top: .3rem;
+  }
+
+  /* DURATION PILLS */
+  .duration-pills {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+  }
+
+  .pill {
+    padding: .35rem .9rem;
+    border-radius: 20px;
+    font-size: .8rem;
+    font-weight: 600;
+    border: 1.5px solid var(--border);
+    cursor: pointer;
+    transition: all .15s;
+    font-family: 'Outfit', sans-serif;
+    background: white;
+    color: var(--muted);
+  }
+
+  .pill.selected {
+    background: var(--mid);
+    color: white;
+    border-color: var(--mid);
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 700px) {
+    .form-row { grid-template-columns: 1fr; }
+    .res-table th:nth-child(4), .res-table td:nth-child(4),
+    .res-table th:nth-child(5), .res-table td:nth-child(5) { display: none; }
+    .week-head, .week-body { grid-template-columns: 50px repeat(5, 1fr); }
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--muted);
+    font-size: .95rem;
+  }
+  .empty-state .icon { font-size: 2.5rem; margin-bottom: .8rem; }
+
+  .chip {
+    display: inline-block;
+    background: var(--light-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: .15rem .5rem;
+    font-size: .75rem;
+    color: var(--muted);
+    margin: 1px;
+  }
+
+  .teacher-chips { display: flex; flex-wrap: wrap; gap: 2px; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    background: var(--dark);
+    color: white;
+    padding: .8rem 1.4rem;
+    border-radius: 10px;
+    font-size: .875rem;
+    font-weight: 500;
+    box-shadow: var(--shadow-lg);
+    z-index: 999;
+    display: none;
+    align-items: center;
+    gap: .6rem;
+    animation: toastIn .3s ease;
+  }
+  .toast.show { display: flex; }
+  @keyframes toastIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+
+  /* Toggle active/inactive */
+  .toggle-switch {
+    position: relative;
+    width: 38px; height: 22px;
+    flex-shrink: 0;
+  }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-track {
+    position: absolute; inset: 0;
+    background: #cbd5e1;
+    border-radius: 22px;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  .toggle-track::before {
+    content: '';
+    position: absolute;
+    width: 16px; height: 16px;
+    left: 3px; top: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: transform .2s;
+    box-shadow: 0 1px 4px rgba(0,0,0,.2);
+  }
+  .toggle-switch input:checked + .toggle-track { background: var(--green); }
+  .toggle-switch input:checked + .toggle-track::before { transform: translateX(16px); }
+  .settings-item.inactive { opacity: .55; }
+
+  /* EmailJS config section */
+  .emailjs-info {
+    background: rgba(61,143,181,.08);
+    border: 1px solid rgba(61,143,181,.2);
+    border-radius: 9px;
+    padding: .8rem 1rem;
+    font-size: .82rem;
+    color: #1c5f7a;
+    margin-bottom: 1rem;
+    line-height: 1.6;
+  }
+  .emailjs-info strong { font-weight: 700; }
+
+  .color-bar {
+    height: 5px;
+    border-radius: 0 0 0 0;
+    display: flex;
+    overflow: hidden;
+  }
+  .color-bar span { flex: 1; }
+
+
+  /* ── MODAL MULTI-SÉLECTION ─────────────────────────────── */
+  .slots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+    gap: .4rem;
+    padding: .5rem;
+  }
+  .slot-item {
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: .45rem .7rem;
+    background: white;
+    transition: all .15s;
+    align-items: center;
+    gap: .5rem;
+  }
+  .slot-item:hover { border-color: var(--blue); background: #edf6fb; }
+  .slot-item:has(input:checked) { border-color: var(--blue); background: rgba(61,143,181,.1); }
+  .slot-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--mid);
+    color: white;
+    font-family: 'Outfit', sans-serif;
+    font-size: .7rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    min-width: 24px;
+  }
+  .midi-badge { background: var(--muted); }
+  .resources-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: .4rem;
+    padding: .5rem;
+  }
+  .resource-item {
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: .5rem .8rem;
+    background: white;
+    transition: all .15s;
+    align-items: center;
+    gap: .5rem;
+    cursor: pointer;
+  }
+  .resource-item:hover { border-color: var(--green); background: rgba(122,182,72,.08); }
+  .resource-item:has(input:checked) { border-color: var(--green); background: rgba(122,182,72,.1); }
+  .classes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: .3rem;
+    padding: .4rem;
+  }
+  .classes-grid .checkbox-item {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: .3rem .5rem;
+    background: white;
+    font-size: .82rem;
+    transition: all .12s;
+  }
+  .classes-grid .checkbox-item:has(input:checked) { border-color: var(--mid); background: rgba(45,53,97,.08); }
+
+  /* ── VACANCES SCOLAIRES ───────────────────────────────── */
+  .vac-label {
+    font-size: .65rem;
+    font-weight: 600;
+    color: #1a6080;
+    background: rgba(173,216,230,.5);
+    border-radius: 4px;
+    padding: 2px 5px;
+    margin-bottom: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-left: 3px solid #5badd1;
+  }
+  .day-cell.vac-day { background: rgba(173,216,230,.25) !important; }
+  .week-head-cell.vac-head { background: rgba(100,180,220,.35) !important; }
+  .month-day.vac-month { position: relative; }
+  .month-vac-banner {
+    font-size: .6rem;
+    font-weight: 600;
+    color: #1a6080;
+    background: rgba(173,216,230,.55);
+    border-radius: 3px;
+    padding: 1px 4px;
+    margin-bottom: 1px;
+    border-left: 2px solid #5badd1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ferie-label {
+    font-size: .65rem;
+    font-weight: 700;
+    color: #7a4a00;
+    background: rgba(255,200,80,.45);
+    border-radius: 4px;
+    padding: 2px 5px;
+    margin-bottom: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-left: 3px solid #e8a020;
+  }
+  .month-ferie-banner {
+    font-size: .6rem;
+    font-weight: 700;
+    color: #7a4a00;
+    background: rgba(255,200,80,.5);
+    border-radius: 3px;
+    padding: 1px 4px;
+    margin-bottom: 1px;
+    border-left: 2px solid #e8a020;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .week-head-cell.ferie-head { background: rgba(232,160,32,.35) !important; }
+
+  /* ── MONTH CALENDAR ──────────────────────────────── */
+  .month-grid {
+    background: white;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+
+  .month-head-row {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    background: var(--dark);
+  }
+
+  .month-head-cell {
+    padding: .6rem .4rem;
+    text-align: center;
+    font-family: 'Outfit', sans-serif;
+    font-size: .78rem;
+    font-weight: 600;
+    color: rgba(255,255,255,.75);
+    border-right: 1px solid rgba(255,255,255,.08);
+  }
+  .month-head-cell:last-child { border-right: none; }
+
+  .month-body { display: grid; grid-template-columns: repeat(7, 1fr); }
+
+  .month-day {
+    min-height: 90px;
+    padding: 4px;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background .12s;
+    position: relative;
+  }
+  .month-day:nth-child(7n) { border-right: none; }
+  .month-day:hover { background: #f0f7ff; }
+  .month-day.other-month { background: #f9fafc; }
+  .month-day.today-day { background: rgba(245,197,24,.08); }
+
+  .month-day-num {
+    font-size: .78rem;
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+    color: var(--muted);
+    margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .month-day.today-day .month-day-num { color: var(--orange); }
+
+  .month-today-dot {
+    width: 20px; height: 20px;
+    background: var(--orange);
+    border-radius: 50%;
+    color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .72rem;
+    font-weight: 700;
+  }
+
+  .month-res-block {
+    border-radius: 4px;
+    padding: 2px 5px;
+    font-size: .68rem;
+    font-weight: 600;
+    margin-bottom: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+  }
+
+  /* ── STAT SECTION CARDS ──────────────────────────── */
+  .stat-section-card {
+    background: white;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    padding: 1.2rem 1.4rem;
+    box-shadow: var(--shadow);
+  }
+
+  .stat-section-title {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    font-size: .9rem;
+    color: var(--dark);
+    margin-bottom: 1rem;
+    padding-bottom: .6rem;
+    border-bottom: 1.5px solid var(--border);
+  }
+
+  .bar-chart-row {
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+    margin-bottom: .65rem;
+  }
+  .bar-label {
+    font-size: .8rem;
+    color: var(--text);
+    min-width: 140px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+  }
+  .bar-track {
+    flex: 1;
+    height: 16px;
+    background: var(--light-bg);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 8px;
+    transition: width .5s cubic-bezier(.25,.46,.45,.94);
+    min-width: 4px;
+  }
+  .bar-count {
+    font-size: .78rem;
+    font-weight: 700;
+    color: var(--muted);
+    min-width: 28px;
+    text-align: right;
+  }
+
+  /* Conflict */
+  .conflict-icon { color: var(--orange); font-weight: 700; }
+
+  @media (max-width: 700px) {
+    .stats-charts-grid { grid-template-columns: 1fr !important; }
+    .month-day { min-height: 60px; }
+    .bar-label { min-width: 90px; }
+  }
+
+  /* ── PRINT STYLES ─────────────────────────────────── */
+  @media print {
+    header, .tabs, .list-controls, .action-btns, #tab-stats, #tab-mois,
+    .modal-overlay, .settings-overlay, .toast, .color-bar,
+    .stats-row, button { display: none !important; }
+    main { padding: 0 !important; }
+    .panel { display: block !important; }
+    .panel:not(#panel-liste) { display: none !important; }
+    #panel-liste { display: block !important; }
+    body { background: white; }
+    .res-table { box-shadow: none; }
+  }
+
+  /* ── SETTINGS PANEL ────────────────────────────────── */
+  .settings-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(26,26,46,.55);
+    backdrop-filter: blur(5px);
+    z-index: 300;
+    display: none;
+    align-items: flex-start;
+    justify-content: flex-end;
+  }
+  .settings-overlay.open { display: flex; }
+
+  .settings-panel {
+    background: white;
+    width: 100%;
+    max-width: 700px;
+    height: 100vh;
+    overflow-y: auto;
+    box-shadow: -8px 0 40px rgba(0,0,0,.2);
+    animation: slideIn .28s cubic-bezier(.25,.46,.45,.94);
+    display: flex;
+    flex-direction: column;
+  }
+
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+  }
+
+  .settings-header {
+    background: var(--dark);
+    color: white;
+    padding: 1.4rem 1.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-shrink: 0;
+  }
+
+  .settings-header h2 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+  }
+
+  .settings-header p {
+    font-size: .8rem;
+    color: rgba(255,255,255,.55);
+    margin-top: .15rem;
+  }
+
+  .settings-tabs {
+    display: flex;
+    border-bottom: 2px solid var(--border);
+    padding: 0 1.8rem;
+    gap: 0;
+    flex-shrink: 0;
+    overflow-x: auto;
+  }
+
+  .stab {
+    padding: .9rem 1.1rem;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    font-size: .85rem;
+    color: var(--muted);
+    cursor: pointer;
+    border: none;
+    background: none;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    white-space: nowrap;
+    transition: color .2s;
+  }
+
+  .stab.active { color: var(--mid); border-bottom-color: var(--mid); }
+  .stab:hover:not(.active) { color: var(--text); }
+
+  .settings-body { padding: 1.6rem 1.8rem; flex: 1; }
+
+  .spanel { display: none; }
+  .spanel.active { display: block; }
+
+  /* Settings sub-sections */
+  .settings-section {
+    background: var(--light-bg);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    margin-bottom: 1.4rem;
+    overflow: hidden;
+  }
+
+  .settings-section-head {
+    padding: .9rem 1.2rem;
+    background: white;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .8rem;
+  }
+
+  .settings-section-head h3 {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    font-size: .95rem;
+    color: var(--dark);
+  }
+
+  .settings-section-head p {
+    font-size: .78rem;
+    color: var(--muted);
+    margin-top: .1rem;
+  }
+
+  .settings-list {
+    padding: .6rem;
+  }
+
+  .settings-item {
+    background: white;
+    border-radius: 9px;
+    border: 1.5px solid var(--border);
+    padding: .7rem 1rem;
+    margin-bottom: .5rem;
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+    transition: border-color .15s;
+  }
+
+  .settings-item:last-child { margin-bottom: 0; }
+  .settings-item:hover { border-color: #c8d4e8; }
+
+  .settings-item-icon {
+    width: 36px; height: 36px;
+    border-radius: 9px;
+    background: var(--light-bg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  .settings-item-info { flex: 1; min-width: 0; }
+
+  .settings-item-name {
+    font-weight: 600;
+    font-size: .9rem;
+    color: var(--dark);
+    font-family: 'Outfit', sans-serif;
+  }
+
+  .settings-item-sub {
+    font-size: .78rem;
+    color: var(--muted);
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .settings-item-actions { display: flex; gap: .3rem; flex-shrink: 0; }
+
+  /* Add form inline */
+  .add-form {
+    background: white;
+    border-radius: 9px;
+    border: 1.5px dashed #b0bcd4;
+    padding: 1rem;
+    margin: .6rem;
+    margin-top: 0;
+  }
+
+  .add-form .form-row { margin-bottom: .7rem; }
+  .add-form .form-row:last-child { margin-bottom: 0; }
+
+  /* Resource color picker */
+  .color-picker-row {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+  }
+
+  .color-swatch {
+    width: 30px; height: 30px;
+    border-radius: 7px;
+    cursor: pointer;
+    border: 3px solid transparent;
+    transition: transform .15s, border-color .15s;
+  }
+
+  .color-swatch.selected { border-color: var(--dark); transform: scale(1.15); }
+  .color-swatch:hover { transform: scale(1.1); }
+
+  /* Password gate */
+  .pw-gate {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 2rem;
+    text-align: center;
+  }
+
+  .pw-gate .lock-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+  }
+
+  .pw-gate h3 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: .4rem;
+  }
+
+  .pw-gate p {
+    color: var(--muted);
+    font-size: .88rem;
+    margin-bottom: 1.4rem;
+  }
+
+  .pw-row {
+    display: flex;
+    gap: .6rem;
+    width: 100%;
+    max-width: 340px;
+  }
+
+  .pw-input {
+    flex: 1;
+    padding: .65rem 1rem;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    font-size: .95rem;
+    outline: none;
+    font-family: 'DM Sans', sans-serif;
+    transition: border-color .2s;
+  }
+
+  .pw-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(61,143,181,.15); }
+  .pw-error { color: var(--orange); font-size: .82rem; margin-top: .5rem; font-weight: 500; }
+
+  .danger-btn {
+    background: rgba(232,82,28,.08);
+    color: var(--orange);
+    border: 1.5px solid rgba(232,82,28,.2);
+    font-size: .78rem;
+    padding: .25rem .7rem;
+    border-radius: 7px;
+    cursor: pointer;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    transition: all .15s;
+  }
+  .danger-btn:hover { background: rgba(232,82,28,.15); }
+
+
+  #fb-indicator { white-space: nowrap; }
+  #fb-indicator #fb-status { font-size: .7rem; }
+
+</style>
+</head>
+<body>
+<!-- ──────────── Cadenas d'accès (verrou simple, pas de vraie sécurité) ──────────── -->
+<style>
+  #spt-gate { position:fixed; inset:0; z-index:99999; background:#0e1029;
+              display:flex; align-items:center; justify-content:center;
+              font-family:'Outfit', sans-serif; color:#fff; padding:20px; }
+  #spt-gate.hidden { display:none; }
+  #spt-gate .card { background:#1a1d3a; padding:28px 32px; border-radius:14px;
+                    width:100%; max-width:380px; box-shadow:0 10px 40px rgba(0,0,0,.5);
+                    border:1px solid rgba(255,255,255,.08); }
+  #spt-gate h2 { margin:0 0 6px 0; font-size:1.3rem; color:#e8521c; }
+  #spt-gate p  { margin:0 0 18px 0; font-size:.9rem; color:rgba(255,255,255,.6); }
+  #spt-gate input { width:100%; padding:12px 14px; border-radius:8px;
+                    border:1px solid rgba(255,255,255,.15); background:#0e1029;
+                    color:#fff; font:500 .95rem 'Outfit',sans-serif; box-sizing:border-box; }
+  #spt-gate button { width:100%; margin-top:12px; padding:12px; border:none;
+                     border-radius:8px; background:#e8521c; color:#fff;
+                     font:600 .95rem 'Outfit',sans-serif; cursor:pointer; }
+  #spt-gate button:hover { background:#ff6b30; }
+  #spt-gate .err { color:#ff8c4a; font-size:.85rem; margin-top:10px; min-height:1.2em; }
+</style>
+<div id="spt-gate" role="dialog" aria-label="Authentification">
+  <div class="card">
+    <h2>🔒 Accès protégé</h2>
+    <p>Salle de Technologie — Collège Saint-Pierre</p>
+    <input id="spt-gate-input" type="password" placeholder="Mot de passe" autocomplete="current-password" />
+    <button id="spt-gate-btn">Entrer</button>
+    <div id="spt-gate-err" class="err"></div>
+  </div>
+</div>
+<script>
+(function () {
+  // SHA-256 de "techno@stpierre85" — le mdp lui-même n'apparaît PAS dans le code.
+  var EXPECTED = 'a7e1d0577b91edc9ba360f1948248d5d33a7477d0fb5c5726f77623c8494da54';
+  var SESSION_KEY = 'spt-gate-ok';
+  var gate = document.getElementById('spt-gate');
+  var input = document.getElementById('spt-gate-input');
+  var btn   = document.getElementById('spt-gate-btn');
+  var err   = document.getElementById('spt-gate-err');
+
+  function unlock() {
+    try { sessionStorage.setItem(SESSION_KEY, '1'); } catch(e){}
+    gate.classList.add('hidden');
+  }
+  // Si déjà déverrouillé sur cet onglet, on saute le gate
+  try {
+    if (sessionStorage.getItem(SESSION_KEY) === '1') { unlock(); return; }
+  } catch(e){}
+
+  async function sha256(text) {
+    if (!crypto || !crypto.subtle) {
+      // Fallback : on autorise (les très vieux navigateurs n'ont pas crypto.subtle).
+      return EXPECTED;
+    }
+    var buf = new TextEncoder().encode(text);
+    var hash = await crypto.subtle.digest('SHA-256', buf);
+    return Array.from(new Uint8Array(hash))
+      .map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+  }
+  async function tryUnlock() {
+    err.textContent = '';
+    var pw = input.value;
+    if (!pw) return;
+    var h = await sha256(pw);
+    if (h === EXPECTED) {
+      unlock();
+    } else {
+      err.textContent = 'Mot de passe incorrect';
+      input.value = ''; input.focus();
+    }
+  }
+  btn.addEventListener('click', tryUnlock);
+  input.addEventListener('keydown', function(e){ if (e.key === 'Enter') tryUnlock(); });
+  setTimeout(function(){ try { input.focus(); } catch(e){} }, 100);
+})();
+</script>
+
+<!-- ──────────── Panneau de diagnostic (s'ouvre sur erreur Firebase) ──────────── -->
+<style>
+  #spt-diag { position:fixed; left:8px; right:8px; bottom:8px; max-height:50vh; overflow:auto;
+              z-index:9999; background:#1a1a1a; color:#ff8c4a; font:12px/1.4 monospace;
+              padding:10px; border-radius:8px; border:2px solid #e8521c;
+              display:none; box-shadow:0 4px 20px rgba(0,0,0,.5); }
+  #spt-diag h4 { margin:0 0 6px 0; font:600 13px sans-serif; color:#fff; display:flex;
+                 justify-content:space-between; align-items:center; }
+  #spt-diag h4 button { background:#e8521c; color:#fff; border:none; padding:4px 10px;
+                        border-radius:4px; font-size:11px; cursor:pointer; }
+  #spt-diag .line { border-top:1px solid #333; padding-top:4px; margin-top:4px;
+                    word-break:break-all; white-space:pre-wrap; }
+</style>
+<div id="spt-diag" role="alert" aria-live="polite"></div>
+<script>
+(function () {
+  var box = null;
+  function ensureBox(){
+    box = document.getElementById('spt-diag');
+    if (!box.firstChild) {
+      box.innerHTML = '<h4>Diagnostic Firebase <button onclick="document.getElementById(\'spt-diag\').style.display=\'none\'">Fermer</button></h4>';
+    }
+    box.style.display = 'block';
+  }
+  function log(msg){
+    try {
+      ensureBox();
+      var d = new Date().toLocaleTimeString();
+      var div = document.createElement('div');
+      div.className = 'line';
+      div.textContent = '[' + d + '] ' + msg;
+      box.appendChild(div);
+    } catch(e){}
+  }
+  window.sptDiag = log;
+  window.addEventListener('error', function(e){
+    if (e && e.message) log('JS error: ' + e.message + ' @ ' + (e.filename||'?') + ':' + (e.lineno||'?'));
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    var r = e.reason;
+    var msg = r && r.code ? (r.code + ' — ' + (r.message||'')) : (r && r.message ? r.message : String(r));
+    log('Promise rejetée: ' + msg);
+  });
+  // Infos contextuelles d'aide au support
+  log('URL: ' + (location.protocol + '//' + (location.host||'(local)') + location.pathname));
+  log('UA: ' + (navigator.userAgent||'?').slice(0,140));
+})();
+</script>
+
+
+<header>
+  <div class="header-left">
+    <img src="data:image/png;base64,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" alt="Logo Collège Saint-Pierre">
+    <div class="header-title">
+      <h1>🖥️ Salle de Technologie</h1>
+      <span>Réservation des ressources matérielles</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="btn btn-secondary" onclick="openModal('add')">＋ Nouvelle réservation</button>
+    <span id="fb-indicator" style="font-size:.72rem;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:.3rem;padding:.3rem .6rem;background:rgba(255,255,255,.07);border-radius:6px;border:1px solid rgba(255,255,255,.1)" title="Statut synchronisation">
+      <span style="width:7px;height:7px;border-radius:50%;background:var(--muted);display:inline-block" id="fb-dot"></span>
+      <span id="fb-status">Local</span>
+    </span>
+    <button class="btn btn-settings" onclick="openSettings()" title="Paramètres administrateur">⚙️ Paramètres</button>
+  </div>
+</header>
+
+<!-- COLOR BAR -->
+<div class="color-bar">
+  <span style="background:var(--blue)"></span>
+  <span style="background:var(--green)"></span>
+  <span style="background:var(--orange)"></span>
+  <span style="background:var(--yellow)"></span>
+</div>
+
+<main>
+
+  <!-- STATS -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="label">Réservations ce mois</div>
+      <div class="value" id="stat-month">0</div>
+      <div class="sub">sur le calendrier en cours</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Ressources disponibles</div>
+      <div class="value" id="stat-resources">3</div>
+      <div class="sub">machines enregistrées</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Classes concernées</div>
+      <div class="value" id="stat-classes">0</div>
+      <div class="sub">ce trimestre</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Total réservations</div>
+      <div class="value" id="stat-total">0</div>
+      <div class="sub">depuis le début de l'année</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('calendrier')" id="tab-calendrier">📅 Semaine</button>
+    <button class="tab" onclick="switchTab('mois')" id="tab-mois">🗓️ Mois</button>
+    <button class="tab" onclick="switchTab('ressources')" id="tab-ressources">🖨️ Ressources</button>
+    <button class="tab" onclick="switchTab('liste')" id="tab-liste">📋 Réservations</button>
+    <button class="tab" onclick="switchTab('stats')" id="tab-stats">📊 Statistiques</button>
+  </div>
+
+  <!-- PANEL: CALENDRIER -->
+  <div class="panel active" id="panel-calendrier">
+    <div class="calendar-header">
+      <div class="calendar-nav">
+        <button class="nav-btn" onclick="navWeek(-1)">‹</button>
+        <h2 id="week-label">Semaine du …</h2>
+        <button class="nav-btn" onclick="navWeek(1)">›</button>
+        <button class="btn btn-outline" onclick="goToday()" style="font-size:.82rem;padding:.4rem .9rem">Aujourd'hui</button>
+      </div>
+      <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+        <div style="display:flex;gap:.5rem;font-size:.78rem;align-items:center;flex-wrap:wrap">
+          <span style="display:flex;align-items:center;gap:.3rem"><span style="width:10px;height:10px;background:var(--blue);border-radius:2px;display:inline-block"></span> Ultimaker</span>
+          <span style="display:flex;align-items:center;gap:.3rem"><span style="width:10px;height:10px;background:var(--green);border-radius:2px;display:inline-block"></span> Bambu</span>
+          <span style="display:flex;align-items:center;gap:.3rem"><span style="width:10px;height:10px;background:var(--orange);border-radius:2px;display:inline-block"></span> Laser</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="conflict-banner" style="display:none;background:rgba(232,82,28,.1);border:1.5px solid rgba(232,82,28,.3);border-radius:10px;padding:.65rem 1rem;margin-bottom:.8rem;color:#8b2a0a;font-size:.85rem;font-weight:600"></div>
+    <div class="week-grid" id="week-grid">
+      <!-- dynamically rendered -->
+    </div>
+  </div>
+
+  <!-- PANEL: RESSOURCES -->
+  <div class="panel" id="panel-ressources">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:.8rem">
+      <h2 style="font-family:'Outfit',sans-serif;font-size:1.1rem;font-weight:700">Ressources disponibles</h2>
+      <button class="btn btn-primary" onclick="openSettings(); setTimeout(()=>{ document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active')); document.querySelectorAll('.spanel').forEach(p=>p.classList.remove('active')); const rb=document.querySelector('.stab[onclick*=resources]'); if(rb){rb.classList.add('active'); document.getElementById('spanel-resources').classList.add('active');} }, 500)">＋ Ajouter une ressource</button>
+    </div>
+    <div class="resources-grid" id="resources-grid">
+      <!-- dynamically rendered -->
+    </div>
+  </div>
+
+  <!-- PANEL: LISTE -->
+  <div class="panel" id="panel-liste">
+    <div class="list-controls">
+      <input type="text" class="search-input" placeholder="🔍 Rechercher par classe, prof, ressource…" id="search-input" oninput="renderTable()">
+      <select class="filter-select" id="filter-resource" onchange="renderTable()">
+        <option value="">Toutes les ressources</option>
+        <option value="ultimaker">Ultimaker 2+</option>
+        <option value="bambu">Bambu Combo</option>
+        <option value="laser">Découpe Laser</option>
+      </select>
+      <select class="filter-select" id="filter-duration" onchange="renderTable()">
+        <option value="">Toute durée</option>
+        <option value="heure">1 heure de cours</option>
+        <option value="journee">Journée</option>
+        <option value="semaine">Semaine</option>
+      </select>
+      <button class="btn btn-primary" onclick="openModal('add')">＋ Réserver</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="res-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Ressource</th>
+            <th>Durée</th>
+            <th>Classe(s)</th>
+            <th>Professeur(s)</th>
+            <th>Objet / Notes</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="table-body">
+        </tbody>
+      </table>
+    </div>
+    <div id="empty-msg" class="empty-state" style="display:none">
+      <div class="icon">📭</div>
+      <div>Aucune réservation trouvée</div>
+    </div>
+  </div>
+
+
+  <!-- PANEL: MOIS -->
+  <div class="panel" id="panel-mois">
+    <div class="calendar-header">
+      <div class="calendar-nav">
+        <button class="nav-btn" onclick="navMonth(-1)">‹</button>
+        <h2 id="month-label">…</h2>
+        <button class="nav-btn" onclick="navMonth(1)">›</button>
+        <button class="btn btn-outline" onclick="goTodayMonth()" style="font-size:.82rem;padding:.4rem .9rem">Aujourd'hui</button>
+      </div>
+      <div id="month-legend" style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;font-size:.78rem"></div>
+    </div>
+    <div id="month-grid" class="month-grid"></div>
+  </div>
+
+  <!-- PANEL: STATISTIQUES -->
+  <div class="panel" id="panel-stats">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;flex-wrap:wrap;gap:.8rem">
+      <h2 style="font-family:'Outfit',sans-serif;font-size:1.1rem;font-weight:700">📊 Statistiques d'utilisation</h2>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <select class="filter-select" id="stats-year" onchange="renderStats()"></select>
+        <button class="btn btn-outline" onclick="exportPDF()" style="font-size:.82rem">🖨️ Exporter PDF</button>
+      </div>
+    </div>
+    <div class="stats-row" id="stats-kpi" style="margin-bottom:1.5rem"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin-bottom:1.2rem" class="stats-charts-grid">
+      <div class="stat-section-card" id="stats-by-resource">
+        <div class="stat-section-title">Par ressource</div>
+        <div id="chart-resource"></div>
+      </div>
+      <div class="stat-section-card" id="stats-by-class">
+        <div class="stat-section-title">Par classe</div>
+        <div id="chart-class"></div>
+      </div>
+    </div>
+    <div class="stat-section-card" style="margin-bottom:1.2rem">
+      <div class="stat-section-title">Par professeur</div>
+      <div id="chart-teacher"></div>
+    </div>
+    <div class="stat-section-card">
+      <div class="stat-section-title">Par mois (année sélectionnée)</div>
+      <div id="chart-month"></div>
+    </div>
+  </div>
+
+</main>
+
+<!-- MODAL RÉSERVATION -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header">
+      <div>
+        <h3 id="modal-title">Nouvelle réservation</h3>
+        <p id="modal-subtitle">Sélectionnez les ressources, les créneaux et les classes</p>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-id">
+
+      <!-- DURÉE -->
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label>Durée *</label>
+          <div class="duration-pills" id="duration-pills">
+            <span class="pill" onclick="selectDuration('heure', this)">🕐 Créneaux cours</span>
+            <span class="pill" onclick="selectDuration('journee', this)">📅 Journée</span>
+            <span class="pill" onclick="selectDuration('semaine', this)">📆 Semaine</span>
+          </div>
+          <input type="hidden" id="f-duration">
+        </div>
+      </div>
+
+      <!-- DATE(S) -->
+      <div class="form-row" id="date-row">
+        <div class="form-group">
+          <label>Date *</label>
+          <input type="date" class="form-control" id="f-date-start">
+        </div>
+        <div class="form-group" id="date-end-group" style="display:none">
+          <label>Date de fin</label>
+          <input type="date" class="form-control" id="f-date-end">
+        </div>
+      </div>
+
+      <!-- CRÉNEAUX MULTIPLES (mode heure) -->
+      <div class="form-group" id="time-group">
+        <label>Créneau(x) horaire(s) * <span style="font-size:.75rem;color:var(--muted);font-weight:400">— sélection multiple possible</span></label>
+        <div class="checkbox-group slots-grid" id="slots-group">
+          <label class="checkbox-item slot-item"><input type="checkbox" name="slot" value="08:30|09:25"> <span class="slot-badge">H1</span> 8h30 – 9h25</label>
+          <label class="checkbox-item slot-item"><input type="checkbox" name="slot" value="09:25|10:20"> <span class="slot-badge">H2</span> 9h25 – 10h20</label>
+          <label class="checkbox-item slot-item"><input type="checkbox" name="slot" value="10:40|11:35"> <span class="slot-badge">H3</span> 10h40 – 11h35</label>
+          <label class="checkbox-item slot-item"><input type="checkbox" name="slot" value="11:35|12:30"> <span class="slot-badge">H4</span> 11h35 – 12h30</label>
+          <label class="checkbox-item slot-item"><input type="checkbox" name="slot" value="12:30|13:45"> <span class="slot-badge midi-badge">Midi</span> 12h30 – 13h45</label>
+          <label class="checkbox-item slot-item"><input type="checkbox" name="slot" value="13:55|14:50"> <span class="slot-badge">H5</span> 13h55 – 14h50</label>
+          <label class="checkbox-item slot-item"><input type="checkbox" name="slot" value="15:10|16:05"> <span class="slot-badge">H6</span> 15h10 – 16h05</label>
+          <label class="checkbox-item slot-item"><input type="checkbox" name="slot" value="16:05|17:00"> <span class="slot-badge">H7</span> 16h05 – 17h00</label>
+        </div>
+        <!-- Champs cachés compatibilité mode édition -->
+        <input type="hidden" id="f-time-start" value="08:30">
+        <input type="hidden" id="f-time-end"   value="09:25">
+        <input type="hidden" id="f-slot"        value="">
+      </div>
+
+      <!-- RESSOURCES MULTIPLES -->
+      <div class="form-group">
+        <label>Ressource(s) * <span style="font-size:.75rem;color:var(--muted);font-weight:400">— sélection multiple possible</span></label>
+        <div class="checkbox-group resources-grid" id="resources-group">
+          <!-- rempli dynamiquement par buildFormSelects() -->
+        </div>
+      </div>
+
+      <!-- SÉPARATEUR VISUEL CRÉNEAUX × CLASSES -->
+      <div id="multi-slot-hint" style="display:none;background:rgba(61,143,181,.08);border:1px solid rgba(61,143,181,.2);border-radius:9px;padding:.7rem 1rem;font-size:.82rem;color:#1c5f7a;margin-bottom:.8rem">
+        💡 <strong>Plusieurs créneaux sélectionnés</strong> — les classes choisies ci-dessous s'appliquent à <em>tous</em> les créneaux.<br>
+        Pour des classes différentes par créneau, créez les réservations séparément.
+      </div>
+
+      <!-- CLASSES -->
+      <div class="form-group">
+        <label>Classe(s) concernée(s) *</label>
+        <div class="checkbox-group classes-grid" id="classes-group"></div>
+      </div>
+
+      <!-- PROFESSEURS -->
+      <div class="form-group">
+        <label>Professeur(s) *</label>
+        <div class="checkbox-group" id="teachers-group"></div>
+      </div>
+
+      <!-- NOTES -->
+      <div class="form-group">
+        <label>Objet / Notes</label>
+        <textarea class="form-control" id="f-notes" rows="2" placeholder="Description de l'activité, projet, remarques…" style="resize:vertical"></textarea>
+      </div>
+
+      <!-- RÉCAPITULATIF DYNAMIQUE -->
+      <div id="resa-summary" style="display:none;background:var(--light-bg);border:1.5px solid var(--border);border-radius:9px;padding:.8rem 1rem;font-size:.82rem;color:var(--text);margin-top:.2rem">
+        <div style="font-weight:600;font-family:'Outfit',sans-serif;margin-bottom:.4rem;color:var(--dark)">📋 Récapitulatif</div>
+        <div id="resa-summary-content"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="saveReservation()">✓ Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ SETTINGS PANEL ══════════════════════════════════════════ -->
+<div class="settings-overlay" id="settings-overlay" onclick="closeSettingsOutside(event)">
+  <div class="settings-panel" id="settings-panel">
+
+    <!-- Header -->
+    <div class="settings-header">
+      <div>
+        <h2>⚙️ Paramètres administrateur</h2>
+        <p>Gestion des classes, professeurs et ressources matérielles</p>
+      </div>
+      <button class="modal-close" onclick="closeSettings()">✕</button>
+    </div>
+
+    <!-- Password gate -->
+    <div id="pw-gate" class="pw-gate">
+      <div class="lock-icon">🔒</div>
+      <h3>Accès administrateur</h3>
+      <p>Entrez le mot de passe pour accéder aux paramètres.</p>
+      <div class="pw-row">
+        <input type="password" class="pw-input" id="pw-input" placeholder="Mot de passe…" onkeydown="if(event.key==='Enter')checkPw()">
+        <button class="btn btn-primary" onclick="checkPw()">Entrer</button>
+      </div>
+      <div class="pw-error" id="pw-error" style="display:none">Mot de passe incorrect.</div>
+    </div>
+
+    <!-- Settings content (hidden until authenticated) -->
+    <div id="settings-content" style="display:none; flex:1; display:none; flex-direction:column">
+
+      <!-- Sub-tabs -->
+      <div class="settings-tabs">
+        <button class="stab active" onclick="switchStab('classes', this)">🏫 Classes</button>
+        <button class="stab" onclick="switchStab('profs', this)">👩‍🏫 Professeurs</button>
+        <button class="stab" onclick="switchStab('resources', this)">🖨️ Ressources</button>
+        <button class="stab" onclick="switchStab('email', this)">📧 E-mail</button>
+        <button class="stab" onclick="switchStab('firebase', this)">🔥 Firebase</button>
+        <button class="stab" onclick="switchStab('security', this)">🔐 Sécurité</button>
+      </div>
+
+      <div class="settings-body">
+
+        <!-- ── CLASSES ── -->
+        <div class="spanel active" id="spanel-classes">
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <div>
+                <h3>Liste des classes</h3>
+                <p>Ces classes apparaîtront dans le formulaire de réservation</p>
+              </div>
+              <button class="btn btn-primary" style="font-size:.8rem;padding:.4rem .9rem" onclick="toggleAddClass()">＋ Ajouter</button>
+            </div>
+            <div class="settings-list" id="classes-settings-list"></div>
+            <div class="add-form" id="add-class-form" style="display:none">
+              <div class="form-row">
+                <div class="form-group" style="margin:0">
+                  <label>Nom de la classe</label>
+                  <input type="text" class="form-control" id="new-class-input" placeholder="Ex : 5ème C" onkeydown="if(event.key==='Enter')saveNewClass()">
+                </div>
+              </div>
+              <div style="display:flex;gap:.5rem;margin-top:.7rem">
+                <button class="btn btn-primary" onclick="saveNewClass()">Ajouter</button>
+                <button class="btn btn-cancel" onclick="toggleAddClass(false)">Annuler</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── PROFESSEURS ── -->
+        <div class="spanel" id="spanel-profs">
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <div>
+                <h3>Liste des professeurs</h3>
+                <p>Nom, prénom et adresse e-mail @stpierre85.com</p>
+              </div>
+              <button class="btn btn-primary" style="font-size:.8rem;padding:.4rem .9rem" onclick="toggleAddProf()">＋ Ajouter</button>
+            </div>
+            <div class="settings-list" id="profs-settings-list"></div>
+            <div class="add-form" id="add-prof-form" style="display:none">
+              <div class="form-row">
+                <div class="form-group" style="margin-bottom:.7rem">
+                  <label>Nom affiché (ex : Mme Dupont)</label>
+                  <input type="text" class="form-control" id="new-prof-name" placeholder="Mme / M. Nom">
+                </div>
+                <div class="form-group" style="margin-bottom:.7rem">
+                  <label>Adresse e-mail complète</label>
+                  <input type="email" class="form-control" id="new-prof-email-user" placeholder="prenom.nom@stpierre-nantes.fr" style="flex:1">
+                </div>
+              </div>
+              <div style="display:flex;gap:.5rem">
+                <button class="btn btn-primary" onclick="saveNewProf()">Ajouter</button>
+                <button class="btn btn-cancel" onclick="toggleAddProf(false)">Annuler</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── RESSOURCES ── -->
+        <div class="spanel" id="spanel-resources">
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <div>
+                <h3>Ressources matérielles</h3>
+                <p>Équipements réservables de la salle de technologie</p>
+              </div>
+              <button class="btn btn-primary" style="font-size:.8rem;padding:.4rem .9rem" onclick="toggleAddResource()">＋ Ajouter</button>
+            </div>
+            <div class="settings-list" id="resources-settings-list"></div>
+            <div class="add-form" id="add-resource-form" style="display:none">
+              <div class="form-row">
+                <div class="form-group" style="margin-bottom:.7rem">
+                  <label>Nom de la ressource *</label>
+                  <input type="text" class="form-control" id="new-res-name" placeholder="Ex : Imprimante 3D Prusa MK4">
+                </div>
+                <div class="form-group" style="margin-bottom:.7rem">
+                  <label>Icône (emoji)</label>
+                  <input type="text" class="form-control" id="new-res-icon" placeholder="🖨️" maxlength="4" style="font-size:1.3rem;text-align:center">
+                </div>
+              </div>
+              <div class="form-group" style="margin-bottom:.7rem">
+                <label>Description courte</label>
+                <input type="text" class="form-control" id="new-res-desc" placeholder="Technologies, matériaux, usages…">
+              </div>
+              <div class="form-group" style="margin-bottom:.7rem">
+                <label>Couleur de la carte</label>
+                <div class="color-picker-row" id="new-res-color-picker">
+                  <div class="color-swatch selected" style="background:#3d8fb5" data-color="blue" onclick="pickColor(this)"></div>
+                  <div class="color-swatch" style="background:#7ab648" data-color="green" onclick="pickColor(this)"></div>
+                  <div class="color-swatch" style="background:#e8521c" data-color="orange" onclick="pickColor(this)"></div>
+                  <div class="color-swatch" style="background:#f5c518" data-color="yellow" onclick="pickColor(this)"></div>
+                  <div class="color-swatch" style="background:#9b59b6" data-color="purple" onclick="pickColor(this)"></div>
+                  <div class="color-swatch" style="background:#1abc9c" data-color="teal" onclick="pickColor(this)"></div>
+                  <div class="color-swatch" style="background:#e74c3c" data-color="red" onclick="pickColor(this)"></div>
+                  <div class="color-swatch" style="background:#2d3561" data-color="navy" onclick="pickColor(this)"></div>
+                </div>
+              </div>
+              <div style="display:flex;gap:.5rem">
+                <button class="btn btn-primary" onclick="saveNewResource()">Ajouter la ressource</button>
+                <button class="btn btn-cancel" onclick="toggleAddResource(false)">Annuler</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- ── EMAIL ── -->
+        <div class="spanel" id="spanel-email">
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <div>
+                <h3>Configuration EmailJS</h3>
+                <p>Notifications automatiques aux professeurs lors d'une réservation</p>
+              </div>
+              <label class="toggle-switch" title="Activer les notifications e-mail">
+                <input type="checkbox" id="email-enabled-toggle" onchange="saveEmailConfig()">
+                <span class="toggle-track"></span>
+              </label>
+            </div>
+            <div style="padding:1rem">
+              <div class="emailjs-info">
+                📘 <strong>Comment configurer EmailJS&nbsp;:</strong><br>
+                1. Créez un compte gratuit sur <strong>emailjs.com</strong><br>
+                2. Ajoutez un service e-mail (Gmail, SMTP…) → copiez le <em>Service ID</em><br>
+                3. Créez un template avec les variables <code>{{to_email}}</code>, <code>{{to_name}}</code>, <code>{{resource}}</code>, <code>{{date}}</code>, <code>{{classe}}</code>, <code>{{notes}}</code> → copiez le <em>Template ID</em><br>
+                4. Copiez votre <em>Public Key</em> depuis le compte EmailJS<br>
+                5. Renseignez les champs ci-dessous et activez le toggle.
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Service ID *</label>
+                  <input type="text" class="form-control" id="ejs-service" placeholder="service_xxxxxxx">
+                </div>
+                <div class="form-group">
+                  <label>Template ID *</label>
+                  <input type="text" class="form-control" id="ejs-template" placeholder="template_xxxxxxx">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Public Key (User ID) *</label>
+                <input type="text" class="form-control" id="ejs-pubkey" placeholder="xxxxxxxxxxxxxxxxxxxx">
+              </div>
+              <div class="form-group">
+                <label>E-mail de l'expéditeur (adresse de l'admin)</label>
+                <input type="email" class="form-control" id="ejs-from" placeholder="techno@stpierre85.com">
+              </div>
+              <div id="ejs-save-msg" style="font-size:.82rem;margin-bottom:.6rem;display:none"></div>
+              <button class="btn btn-primary" onclick="saveEmailConfig()">💾 Enregistrer la configuration</button>
+              <button class="btn btn-outline" style="margin-left:.5rem" onclick="testEmail()">📤 Tester l'envoi</button>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- ── FIREBASE ── -->
+        <div class="spanel" id="spanel-firebase">
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <div>
+                <h3>🔥 Configuration Firebase</h3>
+                <p>Persistance partagée des réservations en temps réel</p>
+              </div>
+              <label class="toggle-switch" title="Activer Firebase">
+                <input type="checkbox" id="fb-enabled-toggle" onchange="saveFbConfig()">
+                <span class="toggle-track"></span>
+              </label>
+            </div>
+            <div style="padding:1rem">
+              <div class="emailjs-info">
+                🔥 <strong>Comment configurer Firebase :</strong><br>
+                1. Allez sur <strong>console.firebase.google.com</strong> → Créer un projet<br>
+                2. Ajoutez une app Web → copiez la configuration<br>
+                3. Activez <strong>Firestore Database</strong> (mode test pour commencer)<br>
+                4. Collez les valeurs ci-dessous et activez le toggle.<br>
+                Une fois activé, toutes les réservations sont <strong>synchronisées en temps réel</strong> entre tous les navigateurs.
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>API Key *</label>
+                  <input type="text" class="form-control" id="fb-apikey" placeholder="AIzaSy…">
+                </div>
+                <div class="form-group">
+                  <label>Project ID *</label>
+                  <input type="text" class="form-control" id="fb-projectid" placeholder="mon-projet-xxx">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Auth Domain</label>
+                  <input type="text" class="form-control" id="fb-authdomain" placeholder="mon-projet.firebaseapp.com">
+                </div>
+                <div class="form-group">
+                  <label>Storage Bucket</label>
+                  <input type="text" class="form-control" id="fb-storagebucket" placeholder="mon-projet.appspot.com">
+                </div>
+              </div>
+              <div id="fb-save-msg" style="font-size:.82rem;margin-bottom:.6rem;display:none"></div>
+              <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center">
+                <button class="btn btn-primary" onclick="saveFbConfig()">💾 Enregistrer &amp; Connecter</button>
+                <span id="fb-status" style="font-size:.82rem;color:var(--muted)"></span>
+              </div>
+              <div style="margin-top:1rem;padding:.8rem;background:var(--light-bg);border-radius:8px;font-size:.8rem;color:var(--muted)">
+                💡 <strong>Sans Firebase :</strong> les données restent dans le navigateur local (localStorage). Chaque utilisateur a sa propre copie.<br>
+                <strong>Avec Firebase :</strong> un seul agenda partagé, mis à jour instantanément pour tous.
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- ── FIREBASE / PARTAGE ── -->
+        <div class="spanel" id="spanel-firebase">
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <div>
+                <h3>🔥 Partage Firebase (temps réel)</h3>
+                <p>Synchronise les réservations entre tous les utilisateurs</p>
+              </div>
+              <div id="fb-status-badge" style="font-size:.75rem;font-weight:600;padding:.2rem .7rem;border-radius:20px;background:var(--light-bg);border:1px solid var(--border)">
+                <span id="fb-status">Non configuré</span>
+              </div>
+            </div>
+            <div style="padding:1rem">
+              <div class="emailjs-info" style="background:rgba(255,140,0,.08);border-color:rgba(255,140,0,.2);color:#7a4500">
+                🔥 <strong>Comment configurer Firebase :</strong><br>
+                1. Créez un projet sur <strong>console.firebase.google.com</strong><br>
+                2. Ajoutez une application Web → copiez la config<br>
+                3. Activez <strong>Cloud Firestore</strong> en mode test<br>
+                4. Collez les informations ci-dessous et cliquez Connecter.<br>
+                <em style="font-size:.75rem">Tous les appareils connectés verront les réservations en temps réel.</em>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>API Key *</label>
+                  <input type="text" class="form-control" id="fb-api-key" placeholder="AIzaSy…">
+                </div>
+                <div class="form-group">
+                  <label>Project ID *</label>
+                  <input type="text" class="form-control" id="fb-project-id" placeholder="mon-projet-12345">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Auth Domain</label>
+                  <input type="text" class="form-control" id="fb-auth-domain" placeholder="mon-projet.firebaseapp.com">
+                </div>
+                <div class="form-group">
+                  <label>App ID</label>
+                  <input type="text" class="form-control" id="fb-app-id" placeholder="1:123456:web:abc">
+                </div>
+              </div>
+              <div id="fb-cfg-msg" style="font-size:.82rem;margin-bottom:.6rem;display:none"></div>
+              <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+                <button class="btn btn-primary" onclick="saveFbConfig()">🔥 Connecter Firebase</button>
+                <button class="btn btn-outline" onclick="disconnectFb()" style="font-size:.82rem">Déconnecter</button>
+              </div>
+            </div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <div>
+                <h3>Mode hors-ligne</h3>
+                <p>Sans Firebase, les données sont stockées localement dans le navigateur</p>
+              </div>
+            </div>
+            <div style="padding:.8rem 1rem;font-size:.85rem;color:var(--muted)">
+              Les modifications ne seront <strong>pas partagées</strong> entre appareils. Pour un usage partagé entre plusieurs professeurs, configurez Firebase ci-dessus.
+            </div>
+          </div>
+        </div>
+
+        <!-- ── SÉCURITÉ ── -->
+        <div class="spanel" id="spanel-security">
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <div>
+                <h3>Changer le mot de passe admin</h3>
+                <p>Mot de passe par défaut : <strong>admin1234</strong></p>
+              </div>
+            </div>
+            <div style="padding:1rem">
+              <div class="form-group">
+                <label>Mot de passe actuel</label>
+                <input type="password" class="form-control" id="pw-current" placeholder="••••••••">
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Nouveau mot de passe</label>
+                  <input type="password" class="form-control" id="pw-new" placeholder="••••••••">
+                </div>
+                <div class="form-group">
+                  <label>Confirmer</label>
+                  <input type="password" class="form-control" id="pw-confirm" placeholder="••••••••">
+                </div>
+              </div>
+              <div id="pw-change-msg" style="font-size:.82rem;margin-bottom:.8rem;display:none"></div>
+              <button class="btn btn-primary" onclick="changePw()">Mettre à jour le mot de passe</button>
+            </div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-section-head">
+              <div>
+                <h3 style="color:var(--orange)">⚠️ Zone de danger</h3>
+                <p>Actions irréversibles</p>
+              </div>
+            </div>
+            <div style="padding:1rem;display:flex;flex-direction:column;gap:.7rem">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+                <div>
+                  <div style="font-weight:600;font-size:.88rem">Supprimer toutes les réservations</div>
+                  <div style="font-size:.78rem;color:var(--muted)">Efface définitivement l'historique complet</div>
+                </div>
+                <button class="danger-btn" onclick="clearAllReservations()">Tout supprimer</button>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+                <div>
+                  <div style="font-weight:600;font-size:.88rem">Réinitialiser les paramètres</div>
+                  <div style="font-size:.78rem;color:var(--muted)">Remet classes, professeurs et ressources par défaut</div>
+                </div>
+                <button class="danger-btn" onclick="resetSettings()">Réinitialiser</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /settings-body -->
+    </div><!-- /settings-content -->
+  </div><!-- /settings-panel -->
+</div><!-- /settings-overlay -->
+
+
+
+
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <span id="toast-icon">✅</span>
+  <span id="toast-msg">Réservation enregistrée</span>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  Salle de Technologie – Collège Saint-Pierre  |  v4 – Clean
+// ═══════════════════════════════════════════════════════════════
+
+// ─── CONFIGURATION FIREBASE ──────────────────────────────────
+const FIREBASE_CFG = {
+  apiKey:        'AIzaSyDJOM7KIBFcS68JaNsKiCquQDqQfM2CyFc',
+  authDomain:    'salle-techno-saintpierre.firebaseapp.com',
+  projectId:     'salle-techno-saintpierre',
+  storageBucket: 'salle-techno-saintpierre.appspot.com'
+};
+
+// Toujours utiliser la config codée en dur (source de vérité)
+// Le localStorage ne peut que la surcharger si l'admin a explicitement changé les clés
+function getFbConfig() {
+  try {
+    const d = localStorage.getItem('spt-firebase-config');
+    if (d) {
+      const p = JSON.parse(d);
+      // Utiliser le localStorage seulement si l'admin a saisi ses propres clés différentes
+      if (p && p.apiKey && p.apiKey !== FIREBASE_CFG.apiKey) return p;
+    }
+  } catch(e) {}
+  // Par défaut : toujours la config codée en dur, toujours activée
+  return FIREBASE_CFG;
+}
+
+// ─── MOT DE PASSE ADMIN ──────────────────────────────────────
+const DEFAULT_PW = 'admin1234';
+function getAdminPw() { return localStorage.getItem('spt-admin-pw') || DEFAULT_PW; }
+
+// ─── DONNÉES PAR DÉFAUT ───────────────────────────────────────
+const DEFAULT_CLASSES = [
+  '6ème A','6ème B','6ème C','6ème D','6ème E','6ème F',
+  '5ème A','5ème B','5ème C','5ème D','5ème E','5ème F','5ème G',
+  '4ème A','4ème B','4ème C','4ème D','4ème E','4ème F','4ème G',
+  '3ème A','3ème B','3ème C','3ème D','3ème E','3ème F','3ème G'
+].map(n => ({ name: n, active: true }));
+
+const DEFAULT_TEACHERS  = []; // Vide — à remplir dans Paramètres
+const DEFAULT_RESOURCES = [
+  { id:'ultimaker', name:'Imprimante 3D Ultimaker 2+', icon:'🖨️', color:'blue',   desc:'Impression FDM haute qualité – filaments PLA, ABS, Nylon', active:true },
+  { id:'bambu',     name:'Imprimante 3D Bambu Combo',  icon:'🖨️', color:'green',  desc:'Impression multimatériaux rapide – AMS intégré',           active:true },
+  { id:'laser',     name:'Découpe Laser XTools P2S',   icon:'⚡', color:'orange', desc:'Découpe et gravure laser sur bois, acrylique, carton',     active:true }
+];
+
+// ─── ACCESSEURS LOCALSTORAGE ──────────────────────────────────
+function getClasses()   { try { const d=localStorage.getItem('spt-classes');   return d?JSON.parse(d):JSON.parse(JSON.stringify(DEFAULT_CLASSES));   }catch(e){return JSON.parse(JSON.stringify(DEFAULT_CLASSES));} }
+function getTeachers()  { try { const d=localStorage.getItem('spt-teachers');  return d?JSON.parse(d):[];  }catch(e){return [];} }
+function getResources() { try { const d=localStorage.getItem('spt-resources'); return d?JSON.parse(d):JSON.parse(JSON.stringify(DEFAULT_RESOURCES)); }catch(e){return JSON.parse(JSON.stringify(DEFAULT_RESOURCES));} }
+
+// Sauvegarde locale + Firestore + refresh immédiat
+function saveClasses(a)   { localStorage.setItem('spt-classes',   JSON.stringify(a)); fbSaveSettings('classes',   a); refreshAll(); }
+function saveTeachers(a)  { localStorage.setItem('spt-teachers',  JSON.stringify(a)); fbSaveSettings('teachers',  a); refreshAll(); }
+function saveResources(a) { localStorage.setItem('spt-resources', JSON.stringify(a)); fbSaveSettings('resources', a); refreshAll(); }
+function activeResources(){ return getResources().filter(r=>r.active!==false); }
+
+// ─── PALETTE COULEURS ─────────────────────────────────────────
+const COLOR_MAP = {
+  blue:  {css:'var(--blue)',   r:'61,143,181',  text:'#1c5f7a'},
+  green: {css:'var(--green)',  r:'122,182,72',  text:'#3d6b18'},
+  orange:{css:'var(--orange)', r:'232,82,28',   text:'#8b2a0a'},
+  yellow:{css:'var(--yellow)', r:'245,197,24',  text:'#7a5e00'},
+  purple:{css:'#9b59b6',       r:'155,89,182',  text:'#5b2180'},
+  teal:  {css:'#1abc9c',       r:'26,188,156',  text:'#0d6b55'},
+  red:   {css:'#e74c3c',       r:'231,76,60',   text:'#7d1c12'},
+  navy:  {css:'#2d3561',       r:'45,53,97',    text:'#0f1532'}
+};
+
+// ─── ÉTAT GLOBAL ──────────────────────────────────────────────
+let reservations       = [];
+let currentWeekOffset  = 0;
+let currentMonthOffset = 0;
+let editingId          = null;
+let selectedDuration   = '';
+let fbApp              = null;  // firebase.app instance (compat SDK)
+let fbDB               = null;  // firebase.firestore() instance
+let fbUnsub            = null;  // unsubscribe reservations listener
+let fbSettingsUnsub    = null;  // unsubscribe settings listener
+let fbInitRetries      = 0;
+const FB_MAX_RETRIES   = 20;    // 20 × 500ms = 10 secondes max
+
+// ─── VACANCES SCOLAIRES ZONE B (Nantes) ─────────────────────
+// Source : Ministère de l'Éducation nationale – Arrêté officiel
+// Les dates 'fin' sont EXCLUES (premier jour de reprise des cours)
+const VACANCES_ZONE_B = [
+  // ── 2024-2025 ──
+  { nom:'Toussaint',  debut:'2024-10-19', fin:'2024-11-04' },
+  { nom:'Noël',       debut:'2024-12-21', fin:'2025-01-06' },
+  { nom:'Hiver',      debut:'2025-02-08', fin:'2025-02-24' },
+  { nom:'Printemps',  debut:'2025-04-05', fin:'2025-04-22' },
+  { nom:'Été',        debut:'2025-07-05', fin:'2025-09-01' },
+  // ── 2025-2026 ──
+  { nom:'Toussaint',  debut:'2025-10-18', fin:'2025-11-03' },
+  { nom:'Noël',       debut:'2025-12-20', fin:'2026-01-05' },
+  { nom:'Hiver',      debut:'2026-02-14', fin:'2026-03-02' },
+  { nom:'Printemps',  debut:'2026-04-11', fin:'2026-04-27' },
+  { nom:'Ascension',  debut:'2026-05-13', fin:'2026-05-18' },
+  { nom:'Été',        debut:'2026-07-04', fin:'2026-09-01' },
+  // ── 2026-2027 ──
+  { nom:'Toussaint',  debut:'2026-10-17', fin:'2026-11-02' },
+  { nom:'Noël',       debut:'2026-12-19', fin:'2027-01-04' },
+  { nom:'Hiver',      debut:'2027-02-20', fin:'2027-03-08' },
+  { nom:'Printemps',  debut:'2027-04-17', fin:'2027-05-03' },
+  { nom:'Ascension',  debut:'2027-05-05', fin:'2027-05-10' },
+  { nom:'Été',        debut:'2027-07-03', fin:'2027-09-01' },
+];
+
+// Retourne {nom, debut, fin} si la date ISO est en vacances, sinon null
+function getVacance(isoStr) {
+  for (const v of VACANCES_ZONE_B) {
+    if (isoStr >= v.debut && isoStr < v.fin) return v;
+  }
+  return null;
+}
+
+
+// ─── JOURS FÉRIÉS France (art. L3133-1 Code du travail) ──────
+// Calculés précisément via l'algorithme de Pâques (Computus)
+const JOURS_FERIES = {
+  // 2024
+  '2024-01-01': "Jour de l'an",
+  '2024-04-01': 'Lundi de Pâques',
+  '2024-05-01': 'Fête du Travail',
+  '2024-05-08': 'Victoire 1945',
+  '2024-05-09': 'Ascension',
+  '2024-05-20': 'Lundi de Pentecôte',
+  '2024-07-14': 'Fête Nationale',
+  '2024-08-15': 'Assomption',
+  '2024-11-01': 'Toussaint',
+  '2024-11-11': 'Armistice',
+  '2024-12-25': 'Noël',
+  // 2025
+  '2025-01-01': "Jour de l'an",
+  '2025-04-21': 'Lundi de Pâques',
+  '2025-05-01': 'Fête du Travail',
+  '2025-05-08': 'Victoire 1945',
+  '2025-05-29': 'Ascension',
+  '2025-06-09': 'Lundi de Pentecôte',
+  '2025-07-14': 'Fête Nationale',
+  '2025-08-15': 'Assomption',
+  '2025-11-01': 'Toussaint',
+  '2025-11-11': 'Armistice',
+  '2025-12-25': 'Noël',
+  // 2026
+  '2026-01-01': "Jour de l'an",
+  '2026-04-06': 'Lundi de Pâques',
+  '2026-05-01': 'Fête du Travail',
+  '2026-05-08': 'Victoire 1945',
+  '2026-05-14': 'Ascension',
+  '2026-05-25': 'Lundi de Pentecôte',
+  '2026-07-14': 'Fête Nationale',
+  '2026-08-15': 'Assomption',
+  '2026-11-01': 'Toussaint',
+  '2026-11-11': 'Armistice',
+  '2026-12-25': 'Noël',
+  // 2027
+  '2027-01-01': "Jour de l'an",
+  '2027-03-29': 'Lundi de Pâques',
+  '2027-05-01': 'Fête du Travail',
+  '2027-05-08': 'Victoire 1945',
+  '2027-05-06': 'Ascension',
+  '2027-05-17': 'Lundi de Pentecôte',
+  '2027-07-14': 'Fête Nationale',
+  '2027-08-15': 'Assomption',
+  '2027-11-01': 'Toussaint',
+  '2027-11-11': 'Armistice',
+  '2027-12-25': 'Noël',
+};
+
+// Retourne le nom du jour férié ou null
+function getJourFerie(isoStr) {
+  return JOURS_FERIES[isoStr] || null;
+}
+
+// ─── UTILITAIRES DATE ─────────────────────────────────────────
+// isoDate en heure LOCALE (évite le décalage UTC +1/+2h)
+function isoDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const j = String(d.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+j;
+}
+function getMonday(d) {
+  const dd=new Date(d), day=dd.getDay();
+  dd.setDate(dd.getDate()-day+(day===0?-6:1));
+  dd.setHours(0,0,0,0);
+  return dd;
+}
+
+// ─── MOTEUR FIREBASE (SDK Compat) ────────────────────────────
+// Utilise window.firebase (compat SDK chargé via balise script classique)
+// Pas de race condition module/async
+
+function initFirebase() {
+  // Vérifier que le SDK compat est chargé
+  if (typeof firebase === 'undefined') {
+    fbInitRetries++;
+    if (fbInitRetries <= FB_MAX_RETRIES) {
+      setTimeout(initFirebase, 500);
+    } else {
+      console.error('Firebase SDK non disponible après', FB_MAX_RETRIES, 'tentatives');
+      setFbBadge('error');
+    }
+    return;
+  }
+
+  if (fbDB) return; // Déjà initialisé
+
+  try {
+    const cfg = getFbConfig();
+    setFbBadge('connecting');
+
+    // Initialiser ou récupérer l'app Firebase (compat)
+    try {
+      fbApp = firebase.app('spt');
+    } catch(e) {
+      fbApp = firebase.initializeApp(cfg, 'spt');
+    }
+
+    fbDB = fbApp.firestore();
+
+    // ── Démarrage des listeners (appelé UNIQUEMENT après auth anonyme) ──
+    // Sans cela, sur réseau lent (smartphone), les listeners taperaient
+    // Firestore avant que le token d'auth soit prêt → permission denied.
+    const startListeners = () => {
+      // ── Écoute temps réel : Réservations ──
+      if (fbUnsub) fbUnsub();
+      fbUnsub = fbDB.collection('reservations').onSnapshot(
+        snap => {
+          reservations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          localStorage.setItem('spt-reservations', JSON.stringify(reservations));
+          setFbBadge('connected');
+          refreshAll();
+        },
+        err => {
+          console.error('Reservations listener:', err);
+          if (window.sptDiag) sptDiag('Reservations listener: ' + (err.code||'?') + ' — ' + (err.message||err));
+          setFbBadge('error');
+          fbDB = null; fbApp = null;
+        }
+      );
+
+      // ── Écoute temps réel : Paramètres (classes/profs/ressources) ──
+      if (fbSettingsUnsub) fbSettingsUnsub();
+      const lsMap = { classes:'spt-classes', teachers:'spt-teachers', resources:'spt-resources', email_config:'spt-email-config' };
+      fbSettingsUnsub = fbDB.collection('settings').onSnapshot(
+        snap => {
+          if (snap.empty) {
+            // Firestore n'a pas encore de paramètres → pousser les valeurs locales actuelles
+            // (utile sur le premier poste qui se connecte, ou après un reset)
+            const cls = getClasses(), tch = getTeachers(), res = getResources();
+            fbSaveSettings('classes',   cls);
+            fbSaveSettings('teachers',  tch);
+            fbSaveSettings('resources', res);
+          } else {
+            snap.docChanges().forEach(change => {
+              if (change.type === 'added' || change.type === 'modified') {
+                const key = change.doc.id;
+                if (lsMap[key]) {
+                  localStorage.setItem(lsMap[key], change.doc.data().data);
+                }
+              }
+            });
+          }
+          refreshAll();
+        },
+        err => { console.error('Settings listener:', err); if (window.sptDiag) sptDiag('Settings listener: ' + (err.code||'?') + ' — ' + (err.message||err)); }
+      );
+    };
+
+    // ── Auth anonyme : transparent pour l'utilisateur ──
+    // onAuthStateChanged est appelé immédiatement avec l'état courant (user
+    // null si pas connecté, ou user existant si déjà connecté grâce à la
+    // persistance par défaut). On démarre les listeners seulement quand
+    // user != null, pour garantir que l'auth est bien propagée.
+    fbApp.auth().onAuthStateChanged(user => {
+      if (user) {
+        startListeners();
+      } else {
+        setFbBadge('connecting');
+        fbApp.auth().signInAnonymously().catch(err => {
+          console.error('Auth anonyme:', err);
+          if (window.sptDiag) sptDiag('Auth anonyme: ' + (err.code||'?') + ' — ' + (err.message||err));
+          setFbBadge('error');
+        });
+      }
+    });
+
+  } catch(e) {
+    console.error('Firebase init error:', e); if (window.sptDiag) sptDiag('Firebase init: ' + (e.code||'?') + ' — ' + (e.message||e));
+    setFbBadge('error');
+    fbDB = null; fbApp = null;
+  }
+}
+
+function setFbBadge(state) {
+  const b = document.getElementById('fb-header-badge');
+  if (!b) return;
+  const states = {
+    connected:  ['🔥 Sync',      'rgba(255,140,0,.25)',   '#ffaa00'],
+    connecting: ['⏳ Sync…',     'rgba(255,255,255,.12)', 'rgba(255,255,255,.7)'],
+    error:      ['⚠️ Firebase',  'rgba(232,82,28,.2)',    'var(--orange)'],
+    local:      ['💾 Local',     'rgba(255,255,255,.1)',  'rgba(255,255,255,.45)']
+  };
+  const [txt, bg, col] = states[state] || states.local;
+  b.textContent = txt;
+  b.style.background = bg;
+  b.style.color = col;
+  // Permettre un clic pour forcer la reconnexion si pas connecté
+  if (state === 'local' || state === 'error') {
+    b.style.cursor = 'pointer';
+    b.title = 'Cliquer pour reconnecter Firebase';
+    b.onclick = () => {
+      if (!fbDB) { fbInitRetries = 0; setFbBadge('connecting'); setTimeout(initFirebase, 200); }
+    };
+  } else {
+    b.style.cursor = 'default';
+    b.title = state === 'connected' ? 'Synchronisé avec Firestore – Collège Saint-Pierre' : 'Connexion en cours…';
+    b.onclick = null;
+  }
+}
+
+// ── Écriture Firestore : Réservations ──
+async function fbSave(rec) {
+  if (!fbDB) {
+    // Mode local : mettre à jour le tableau en mémoire
+    const i = reservations.findIndex(r => r.id === rec.id);
+    if (i >= 0) reservations[i] = rec; else reservations.push(rec);
+    localStorage.setItem('spt-reservations', JSON.stringify(reservations));
+    refreshAll();
+    return;
+  }
+  try {
+    const { id, ...data } = rec;
+    // Mise à jour locale immédiate (n'attend pas onSnapshot)
+    const i = reservations.findIndex(r => r.id === id);
+    if (i >= 0) reservations[i] = rec; else reservations.push(rec);
+    refreshAll();
+    // Puis persistance Firestore (onSnapshot synchronisera les autres postes)
+    await fbDB.collection('reservations').doc(id).set(data);
+  } catch(e) {
+    console.error('fbSave:', e);
+    showToast('❌', 'Erreur sauvegarde Firebase');
+    // Fallback local
+    const i = reservations.findIndex(r => r.id === rec.id);
+    if (i >= 0) reservations[i] = rec; else reservations.push(rec);
+    localStorage.setItem('spt-reservations', JSON.stringify(reservations));
+    refreshAll();
+  }
+}
+
+// ── Suppression Firestore : Réservations ──
+async function fbDelete(id) {
+  if (!fbDB) {
+    reservations = reservations.filter(r => r.id !== id);
+    localStorage.setItem('spt-reservations', JSON.stringify(reservations));
+    refreshAll();
+    return;
+  }
+  try {
+    // Mise à jour locale immédiate
+    reservations = reservations.filter(r => r.id !== id);
+    refreshAll();
+    // Puis suppression Firestore
+    await fbDB.collection('reservations').doc(id).delete();
+  } catch(e) {
+    console.error('fbDelete:', e);
+    reservations = reservations.filter(r => r.id !== id);
+    localStorage.setItem('spt-reservations', JSON.stringify(reservations));
+    refreshAll();
+  }
+}
+
+// ── Sauvegarde Firestore : Paramètres (classes/profs/ressources) ──
+async function fbSaveSettings(key, data) {
+  if (!fbDB) return;
+  try {
+    await fbDB.collection('settings').doc(key).set({ data: JSON.stringify(data) });
+  } catch(e) { console.error('fbSaveSettings:', e); }
+}
+
+// ─── REFRESH GLOBAL ──────────────────────────────────────────
+function refreshAll() {
+  updateStats();
+  renderWeek();
+  renderResources();
+  renderTable();
+  if(document.getElementById('panel-mois')?.classList.contains('active')) renderMonth();
+  if(document.getElementById('panel-stats')?.classList.contains('active')) renderStats();
+}
+
+// ─── STATISTIQUES HEADER ─────────────────────────────────────
+function updateStats() {
+  const now=new Date(), mo=now.getMonth(), yr=now.getFullYear();
+  const monthRes=reservations.filter(r=>{const d=new Date(r.dateStart);return d.getMonth()===mo&&d.getFullYear()===yr;});
+  const cls=new Set(); reservations.forEach(r=>(r.classes||[]).forEach(c=>cls.add(c)));
+  document.getElementById('stat-month').textContent     = monthRes.length;
+  document.getElementById('stat-total').textContent     = reservations.length;
+  document.getElementById('stat-classes').textContent   = cls.size;
+  document.getElementById('stat-resources').textContent = activeResources().length;
+}
+
+// ─── ONGLETS ──────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  const btn=document.getElementById('tab-'+name);
+  if(btn) btn.classList.add('active');
+  else if(event&&event.currentTarget) event.currentTarget.classList.add('active');
+  document.getElementById('panel-'+name).classList.add('active');
+  if(name==='calendrier') renderWeek();
+  else if(name==='mois')  renderMonth();
+  else if(name==='liste') renderTable();
+  else if(name==='ressources') renderResources();
+  else if(name==='stats') renderStats();
+}
+
+// ─── CALENDRIER SEMAINE ───────────────────────────────────────
+const DAYS_FR   = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];
+const MONTHS_FR = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+// Créneaux horaires officiels du Collège Saint-Pierre (7 heures × 55 min)
+const SLOTS     = ['08:30','09:25','10:40','11:35','12:30','13:55','15:10','16:05'];
+const SLOTS_LBL = ['H1 (8h30-9h25)','H2 (9h25-10h20)','H3 (10h40-11h35)','H4 (11h35-12h30)','Midi (12h30-13h45)','H5 (13h55-14h50)','H6 (15h10-16h05)','H7 (16h05-17h00)'];
+
+function navWeek(dir) { currentWeekOffset+=dir; renderWeek(); }
+function goToday()    { currentWeekOffset=0;    renderWeek(); }
+
+function renderWeek() {
+  const today=new Date();
+  const base=getMonday(today);
+  base.setDate(base.getDate()+currentWeekOffset*7);
+  const days=Array.from({length:5},(_,i)=>{const d=new Date(base);d.setDate(base.getDate()+i);return d;});
+
+  document.getElementById('week-label').textContent =
+    'Semaine du '+days[0].getDate()+' '+MONTHS_FR[days[0].getMonth()]+
+    ' – '+days[4].getDate()+' '+MONTHS_FR[days[4].getMonth()]+' '+days[4].getFullYear();
+
+  const res=activeResources();
+  let h='<div class="week-head"><div class="week-head-cell">Horaire</div>';
+  days.forEach(d=>{
+    const isT=isoDate(d)===isoDate(today);
+    const vacH   = getVacance(isoDate(d));
+    const ferieH = getJourFerie(isoDate(d));
+    const headCls = ferieH ? 'ferie-head' : (vacH ? 'vac-head' : '');
+    const headIcon = ferieH ? ' 🎉' : (vacH ? ' 🏖️' : '');
+    h+='<div class="week-head-cell day-col '+(isT?'today-col':'')+' '+headCls+'">'+
+       DAYS_FR[d.getDay()-1]+headIcon+'<br><strong style="font-size:.95rem;color:white">'+
+       d.getDate()+' '+MONTHS_FR[d.getMonth()]+'</strong></div>';
+  });
+  h+='</div><div class="week-body">';
+
+  SLOTS.forEach((slot,si)=>{
+    h+='<div class="time-label">'+SLOTS_LBL[si]+'</div>';
+    days.forEach(d=>{
+      const iso=isoDate(d), isT=iso===isoDate(today);
+      const dayRes=reservations.filter(r=>{
+        if(r.duration==='heure')   return r.dateStart===iso && r.timeStart===slot;
+        if(r.duration==='journee') return r.dateStart===iso;
+        if(r.duration==='semaine') return iso>=r.dateStart && iso<=(r.dateEnd||r.dateStart);
+        return false;
+      });
+      let blocks='';
+      dayRes.forEach(r=>{
+        const rr=res.find(x=>x.id===r.resource)||getResources().find(x=>x.id===r.resource);
+        if(!rr) return;
+        const cm=COLOR_MAP[rr.color]||COLOR_MAP.blue;
+        blocks+='<div class="reservation-block" '+
+          'style="background:rgba('+cm.r+',.18);border-left:3px solid '+cm.css+';color:'+cm.text+'" '+
+          'onclick="showDetail(\''+r.id+'\');event.stopPropagation()" '+
+          'title="'+rr.name+' — '+(r.classes||[]).join(', ')+'">'+
+          rr.icon+' '+rr.name.split(' ').slice(0,2).join(' ')+'<br>'+
+          '<span style="font-weight:400;opacity:.8">'+(r.classes||[]).join(', ')+'</span></div>';
+      });
+      const vac   = getVacance(iso);
+      const ferie = getJourFerie(iso);
+      // Couleur de fond sur tous les créneaux du jour, label uniquement sur H1 (si===0)
+      const bgStyle = ferie
+        ? 'background:rgba(255,200,80,.22);'
+        : (vac ? 'background:rgba(173,216,230,.28);' : '');
+      const specialBlock = (si === 0)
+        ? (ferie
+            ? '<div class="ferie-label">🎉 ' + ferie + '</div>'
+            : (vac ? '<div class="vac-label">🏖️ ' + vac.nom + '</div>' : ''))
+        : '';
+      h+='<div class="day-cell '+(isT?'today-col':'')+'" '+
+         'style="'+bgStyle+'" '+
+         'onclick="openModalDay(\''+iso+'\',\''+slot+'\')">'+(blocks||specialBlock)+'</div>';
+    });
+  });
+  h+='</div>';
+  document.getElementById('week-grid').innerHTML=h;
+}
+
+function showDetail(id) {
+  const r=reservations.find(x=>x.id===id); if(!r) return;
+  const res=getResources().find(x=>x.id===r.resource);
+  const dl={heure:'1 heure de cours',journee:'Journée',semaine:'Semaine'};
+  alert('📋 Réservation\n\nRessource : '+(res?res.name:r.resource)+
+    '\nDurée : '+(dl[r.duration]||r.duration)+
+    '\nDate : '+r.dateStart+(r.dateEnd&&r.dateEnd!==r.dateStart?' → '+r.dateEnd:'')+
+    (r.timeStart?'\nCréneau : '+slotLabel(r.timeStart):'')+
+    '\nClasse(s) : '+(r.classes||[]).join(', ')+
+    '\nProf(s) : '+(r.teachers||[]).join(', ')+
+    '\nNotes : '+(r.notes||'–'));
+}
+
+// ─── CALENDRIER MOIS ─────────────────────────────────────────
+function navMonth(dir)  { currentMonthOffset+=dir; renderMonth(); }
+function goTodayMonth() { currentMonthOffset=0;    renderMonth(); }
+
+function renderMonth() {
+  const now=new Date(), base=new Date(now.getFullYear(),now.getMonth()+currentMonthOffset,1);
+  const year=base.getFullYear(), month=base.getMonth();
+  document.getElementById('month-label').textContent =
+    MONTHS_FR[month].charAt(0).toUpperCase()+MONTHS_FR[month].slice(1)+' '+year;
+  const res=activeResources();
+  const legEl=document.getElementById('month-legend');
+  if(legEl) legEl.innerHTML=res.map(r=>{
+    const cm=COLOR_MAP[r.color]||COLOR_MAP.blue;
+    return '<span style="display:flex;align-items:center;gap:.3rem">'+
+      '<span style="width:10px;height:10px;background:'+cm.css+';border-radius:2px;display:inline-block"></span>'+
+      r.name.split(' ').slice(0,2).join(' ')+'</span>';
+  }).join('');
+
+  const first=new Date(year,month,1), off=first.getDay()===0?6:first.getDay()-1;
+  const gs=new Date(first); gs.setDate(1-off);
+  const DS=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+  let h='<div class="month-head-row">'+DS.map(d=>'<div class="month-head-cell">'+d+'</div>').join('')+'</div><div class="month-body">';
+  const todayIso=isoDate(now);
+  for(let i=0;i<42;i++){
+    const d=new Date(gs); d.setDate(gs.getDate()+i);
+    const iso=isoDate(d), inM=d.getMonth()===month, isT=iso===todayIso;
+    const dr=reservations.filter(r=>{
+      if(r.duration==='heure'||r.duration==='journee') return r.dateStart===iso;
+      if(r.duration==='semaine') return iso>=r.dateStart&&iso<=(r.dateEnd||r.dateStart);
+      return false;
+    });
+    const vacMon   = getVacance(iso);
+    const ferieMon = getJourFerie(iso);
+    const vacBannerMon = (vacMon && inM)
+      ? '<div class="month-vac-banner">🏖️ ' + vacMon.nom + '</div>'
+      : '';
+    const ferieBannerMon = (ferieMon && inM)
+      ? '<div class="month-ferie-banner">🎉 ' + ferieMon + '</div>'
+      : '';
+    let blocks=dr.slice(0,3).map(r=>{
+      const rr=res.find(x=>x.id===r.resource)||getResources().find(x=>x.id===r.resource);
+      if(!rr) return '';
+      const cm=COLOR_MAP[rr.color]||COLOR_MAP.blue;
+      return '<div class="month-res-block" style="background:rgba('+cm.r+',.18);color:'+cm.text+'" '+
+        'onclick="event.stopPropagation();showDetail(\''+r.id+'\')">'+
+        rr.icon+' '+(r.classes||[]).join(', ')+'</div>';
+    }).join('');
+    if(dr.length>3) blocks+='<div style="font-size:.65rem;color:var(--muted);padding:1px 4px">+'+
+      (dr.length-3)+' autres</div>';
+    const vacStyleM = ferieMon
+      ? 'background:rgba(255,200,80,.3);'
+      : (vacMon ? 'background:rgba(173,216,230,.4);' : '');
+    const combinedBanner = ferieBannerMon + vacBannerMon;
+    h+='<div class="month-day '+(inM?'':'other-month')+' '+(isT?'today-day':'')+'" '+
+       'style="'+vacStyleM+'" '+
+       'onclick="openModalDay(\''+iso+'\',\'08:00\')">'+combinedBanner+
+       '<div class="month-day-num">'+(isT?'<span class="month-today-dot">'+d.getDate()+'</span>':
+       '<span style="'+(inM?'':'color:#c8d4e4')+'">'+d.getDate()+'</span>')+'</div>'+
+       blocks+'</div>';
+  }
+  h+='</div>';
+  document.getElementById('month-grid').innerHTML=h;
+}
+
+// ─── RESSOURCES ───────────────────────────────────────────────
+function renderResources() {
+  const grid=document.getElementById('resources-grid');
+  const res=activeResources();
+  if(!res.length){
+    grid.innerHTML='<div class="empty-state"><div class="icon">🔧</div><div>Aucune ressource active. Activez-en dans ⚙️ Paramètres → Ressources.</div></div>';
+    return;
+  }
+  grid.innerHTML=res.map(r=>{
+    const count=reservations.filter(rv=>rv.resource===r.id).length;
+    const todayR=reservations.find(rv=>rv.resource===r.id&&rv.dateStart===isoDate(new Date()));
+    const status=todayR?'busy':'available';
+    const cm=COLOR_MAP[r.color]||COLOR_MAP.blue;
+    return '<div class="resource-card '+r.color+'" '+
+      'onclick="openModal(\'add\');setTimeout(()=>{const s=document.getElementById(\'f-resource\');if(s)s.value=\''+r.id+'\';},60)">'+
+      '<div class="resource-icon" style="background:rgba('+cm.r+',.12)">'+r.icon+'</div>'+
+      '<div class="resource-name">'+r.name+'</div>'+
+      '<div class="resource-desc">'+r.desc+'</div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem">'+
+      '<div class="resource-status status-'+status+'"><span class="status-dot"></span>'+
+      (status==='busy'?"Réservée aujourd'hui":'Disponible')+'</div>'+
+      '<span style="font-size:.78rem;color:var(--muted)">'+count+' réservation'+(count>1?'s':'')+'</span></div></div>';
+  }).join('');
+}
+
+// ─── TABLEAU ──────────────────────────────────────────────────
+function buildResourceFilter() {
+  const sel=document.getElementById('filter-resource'); if(!sel) return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">Toutes les ressources</option>'+
+    activeResources().map(r=>'<option value="'+r.id+'" '+(cur===r.id?'selected':'')+'>'+r.name+'</option>').join('');
+}
+
+function renderTable() {
+  buildResourceFilter();
+  const search=(document.getElementById('search-input')?.value||'').toLowerCase();
+  const fRes=document.getElementById('filter-resource')?.value||'';
+  const fDur=document.getElementById('filter-duration')?.value||'';
+  const allRes=getResources();
+  let filtered=reservations.filter(r=>{
+    const res=allRes.find(x=>x.id===r.resource);
+    const txt=[res?.name,...(r.classes||[]),...(r.teachers||[]),r.notes].join(' ').toLowerCase();
+    return (!search||txt.includes(search))&&(!fRes||r.resource===fRes)&&(!fDur||r.duration===fDur);
+  }).sort((a,b)=>a.dateStart>b.dateStart?-1:1);
+  const tbody=document.getElementById('table-body');
+  const empty=document.getElementById('empty-msg');
+  if(!filtered.length){tbody.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  const DUR={heure:'🕐 1h de cours',journee:'📅 Journée',semaine:'📆 Semaine'};
+  tbody.innerHTML=filtered.map(r=>{
+    const res=allRes.find(x=>x.id===r.resource);
+    const cm=res?(COLOR_MAP[res.color]||COLOR_MAP.blue):COLOR_MAP.blue;
+    const ds=r.duration==='semaine'?r.dateStart+' → '+(r.dateEnd||r.dateStart):r.dateStart+(r.timeStart?' — '+slotLabel(r.timeStart):'');
+    return '<tr>'+
+      '<td style="white-space:nowrap;font-size:.82rem">'+ds+'</td>'+
+      '<td><span class="badge" style="background:rgba('+cm.r+',.15);color:'+cm.text+'">'+
+      (res?res.icon+' '+res.name.split(' ').slice(0,3).join(' '):r.resource)+'</span></td>'+
+      '<td style="font-size:.82rem">'+(DUR[r.duration]||r.duration)+'</td>'+
+      '<td><div class="teacher-chips">'+(r.classes||[]).map(c=>'<span class="chip">'+c+'</span>').join('')+'</div></td>'+
+      '<td><div class="teacher-chips">'+(r.teachers||[]).map(t=>'<span class="chip">'+t+'</span>').join('')+'</div></td>'+
+      '<td style="max-width:180px;font-size:.82rem;color:var(--muted)">'+(r.notes||'–')+'</td>'+
+      '<td><div class="action-btns">'+
+      '<button class="icon-btn edit" onclick="openModal(\'edit\',\''+r.id+'\')" title="Modifier">✏️</button>'+
+      '<button class="icon-btn del" onclick="deleteRes(\''+r.id+'\')" title="Supprimer">🗑️</button>'+
+      '</div></td></tr>';
+  }).join('');
+}
+
+// ─── MODAL RÉSERVATION ────────────────────────────────────────
+function buildFormSelects(prevClasses, prevTeachers, prevResources) {
+  // ── Ressources (checkboxes multi-sélection) ──
+  const rg = document.getElementById('resources-group');
+  if (rg) {
+    rg.innerHTML = activeResources().map(r => {
+      const cm = COLOR_MAP[r.color] || COLOR_MAP.blue;
+      const checked = (prevResources||[]).includes(r.id) ? 'checked' : '';
+      return `<label class="checkbox-item resource-item">
+        <input type="checkbox" name="resource" value="${r.id}" ${checked}>
+        <span style="font-size:1.1rem">${r.icon}</span>
+        <span style="font-size:.82rem;font-weight:600;color:${cm.text}">${r.name}</span>
+      </label>`;
+    }).join('');
+  }
+
+  // ── Classes ──
+  const cg = document.getElementById('classes-group');
+  if (cg) {
+    cg.innerHTML = getClasses().filter(c => c.active !== false).map(c =>
+      `<label class="checkbox-item"><input type="checkbox" value="${c.name}" ${(prevClasses||[]).includes(c.name)?'checked':''}> ${c.name}</label>`
+    ).join('');
+  }
+
+  // ── Professeurs ──
+  const tg = document.getElementById('teachers-group');
+  if (tg) {
+    tg.innerHTML = getTeachers().filter(t => t.active !== false).map(t =>
+      `<label class="checkbox-item">
+        <input type="checkbox" value="${t.name}" ${(prevTeachers||[]).includes(t.name)?'checked':''}>
+        ${t.name}${t.email ? ` <span style="font-size:.73rem;color:var(--muted);margin-left:.3rem">📧 ${t.email}</span>` : ''}
+      </label>`
+    ).join('') +
+    `<label class="checkbox-item"><input type="checkbox" id="cb-other-teacher" onchange="toggleOtherTeacher(this)"> Autre…</label>
+     <input type="text" class="form-control" id="f-other-teacher" placeholder="Nom du professeur" style="display:none;margin-top:.4rem">`;
+  }
+
+  // ── Listener pour récapitulatif dynamique ──
+  setTimeout(attachSummaryListeners, 50);
+}
+
+// Attache les listeners pour mettre à jour le récapitulatif en temps réel
+function attachSummaryListeners() {
+  const inputs = document.querySelectorAll(
+    '#slots-group input, #resources-group input, #classes-group input, #teachers-group input, #f-date-start, #f-duration'
+  );
+  inputs.forEach(el => {
+    el.removeEventListener('change', updateSummary);
+    el.addEventListener('change', updateSummary);
+  });
+  document.getElementById('f-date-start')?.addEventListener('input', updateSummary);
+}
+
+function updateSummary() {
+  const duration = document.getElementById('f-duration').value;
+  const dateStart = document.getElementById('f-date-start').value;
+  if (!dateStart || !duration) { hideSummary(); return; }
+
+  const slots = Array.from(document.querySelectorAll('#slots-group input:checked'));
+  const resources = Array.from(document.querySelectorAll('#resources-group input:checked'));
+  const classes = Array.from(document.querySelectorAll('#classes-group input:checked'));
+
+  if (duration === 'heure' && !slots.length) { hideSummary(); return; }
+  if (!resources.length && duration === 'heure') { hideSummary(); return; }
+
+  const allRes = getResources();
+  const totalRes = Math.max(resources.length, 1);
+  const totalSlots = duration === 'heure' ? Math.max(slots.length, 1) : 1;
+  const total = totalRes * totalSlots;
+
+  // Multi-slot hint
+  const hint = document.getElementById('multi-slot-hint');
+  if (hint) hint.style.display = slots.length > 1 ? 'block' : 'none';
+
+  // Build summary
+  let lines = [];
+  if (duration === 'heure') {
+    const dateF = dateStart ? new Date(dateStart + 'T12:00').toLocaleDateString('fr-FR', {weekday:'long',day:'numeric',month:'long'}) : '–';
+    lines.push(`📅 ${dateF}`);
+    const slotLabels = slots.map(s => {
+      const [st] = s.value.split('|');
+      return SLOT_MAP[st]?.label || s.value;
+    });
+    if (slotLabels.length) lines.push(`🕐 ${slotLabels.join(' · ')}`);
+    const resLabels = resources.map(r => { const rr = allRes.find(x => x.id === r.value); return rr ? rr.icon + ' ' + rr.name : r.value; });
+    if (resLabels.length) lines.push(`🖨️ ${resLabels.join(' + ')}`);
+    if (classes.length) lines.push(`🏫 ${classes.map(c => c.value).join(', ')}`);
+    if (total > 1) lines.push(`<strong>→ ${total} réservation${total>1?'s':''} créée${total>1?'s':''}</strong> (${totalSlots} créneau${totalSlots>1?'x':''} × ${totalRes} ressource${totalRes>1?'s':''})`);
+  } else {
+    lines.push(`📅 ${dateStart}${duration==='semaine' ? ' → ' + (document.getElementById('f-date-end').value||'…') : ''}`);
+    const resLabels = resources.map(r => { const rr = allRes.find(x => x.id === r.value); return rr ? rr.icon + ' ' + rr.name : r.value; });
+    if (resLabels.length) lines.push(`🖨️ ${resLabels.join(' + ')}`);
+    if (classes.length) lines.push(`🏫 ${classes.map(c => c.value).join(', ')}`);
+  }
+
+  const summary = document.getElementById('resa-summary');
+  const content = document.getElementById('resa-summary-content');
+  if (summary && content && lines.length > 1) {
+    content.innerHTML = lines.join('<br>');
+    summary.style.display = 'block';
+  } else { hideSummary(); }
+}
+
+function hideSummary() {
+  const s = document.getElementById('resa-summary');
+  if (s) s.style.display = 'none';
+  const h = document.getElementById('multi-slot-hint');
+  if (h) h.style.display = 'none';
+}
+function openModal(mode, id) {
+  resetForm();
+  editingId=null;
+  let prevC=[], prevT=[];
+  if(mode==='edit'&&id){
+    const r=reservations.find(x=>x.id===id); if(!r) return;
+    editingId=id; prevC=r.classes||[]; prevT=r.teachers||[];
+    const prevR = r.resource ? [r.resource] : [];
+    document.getElementById('modal-title').textContent='Modifier la réservation';
+    buildFormSelects(prevC, prevT, prevR);
+    // Cocher le créneau en mode édition
+    if (r.timeStart) {
+      const slotCb = document.querySelector('#slots-group input[value^="'+r.timeStart+'|"]');
+      if (slotCb) slotCb.checked = true;
+    }
+    document.getElementById('f-date-start').value =r.dateStart;
+    document.getElementById('f-date-end').value   =r.dateEnd||'';
+    document.getElementById('f-time-start').value = r.timeStart||'08:30';
+    document.getElementById('f-time-end').value   = r.timeEnd||'09:25';
+    // Restaurer le créneau dans le dropdown
+    if (r.timeStart) {
+      const slotSel = document.getElementById('f-slot');
+      if (slotSel) {
+        const matchOpt = Array.from(slotSel.options).find(o => o.value.startsWith(r.timeStart + '|'));
+        if (matchOpt) slotSel.value = matchOpt.value;
+      }
+    }
+    document.getElementById('f-notes').value      = r.notes||'';
+    if(r.duration) selectDurationById(r.duration);
+  } else {
+    document.getElementById('modal-title').textContent='Nouvelle réservation';
+    buildFormSelects([], [], []);
+    document.getElementById('f-date-start').value=isoDate(new Date());
+  }
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function openModalDay(dateIso, slot) {
+  openModal('add');
+  document.getElementById('f-date-start').value = dateIso;
+  // Cocher le créneau correspondant dans la grille
+  const slotKeys = Object.keys(SLOT_MAP);
+  const matchKey = slotKeys.find(k => k === slot) || slotKeys[0];
+  document.getElementById('f-time-start').value = matchKey;
+  document.getElementById('f-time-end').value   = SLOT_MAP[matchKey].end;
+  const slotCb = document.querySelector('#slots-group input[value^="' + matchKey + '|"]');
+  if (slotCb) { slotCb.checked = true; }
+  selectDurationById('heure');
+  setTimeout(updateSummary, 80);
+}
+
+function closeModal()         { document.getElementById('modal-overlay').classList.remove('open'); }
+function closeModalOutside(e) { if(e.target===document.getElementById('modal-overlay')) closeModal(); }
+
+function resetForm() {
+  document.getElementById('f-duration').value   = '';
+  document.getElementById('f-date-start').value = '';
+  document.getElementById('f-date-end').value   = '';
+  document.getElementById('f-time-start').value = '08:30';
+  document.getElementById('f-time-end').value   = '09:25';
+  document.getElementById('f-notes').value      = '';
+  // Décocher tous les créneaux
+  document.querySelectorAll('#slots-group input[type=checkbox]').forEach(cb => cb.checked = false);
+  // Décocher toutes les ressources
+  document.querySelectorAll('#resources-group input[type=checkbox]').forEach(cb => cb.checked = false);
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('selected'));
+  selectedDuration = '';
+  document.getElementById('time-group').style.display = 'block';
+  hideSummary();
+}
+
+function selectDuration(dur, el) {
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected'); selectedDuration = dur;
+  document.getElementById('f-duration').value = dur;
+  document.getElementById('time-group').style.display     = dur === 'heure'   ? 'block' : 'none';
+  const dateEndGrp = document.getElementById('date-end-group');
+  if (dateEndGrp) dateEndGrp.style.display = dur === 'semaine' ? 'block' : 'none';
+  updateSummary();
+}
+
+function selectDurationById(dur) {
+  const pills=document.querySelectorAll('.pill');
+  const map={heure:0,journee:1,semaine:2};
+  pills.forEach(p=>p.classList.remove('selected'));
+  if(pills[map[dur]]) pills[map[dur]].classList.add('selected');
+  selectedDuration=dur;
+  document.getElementById('f-duration').value=dur;
+  document.getElementById('time-group').style.display=dur==='heure'?'block':'none';
+}
+
+// Correspondance créneau → heures début/fin
+const SLOT_MAP = {
+  '08:30': { end: '09:25', label: 'H1 – 8h30 à 9h25'   },
+  '09:25': { end: '10:20', label: 'H2 – 9h25 à 10h20'  },
+  '10:40': { end: '11:35', label: 'H3 – 10h40 à 11h35' },
+  '11:35': { end: '12:30', label: 'H4 – 11h35 à 12h30' },
+  '12:30': { end: '13:45', label: 'Midi – 12h30 à 13h45'},
+  '13:55': { end: '14:50', label: 'H5 – 13h55 à 14h50' },
+  '15:10': { end: '16:05', label: 'H6 – 15h10 à 16h05' },
+  '16:05': { end: '17:00', label: 'H7 – 16h05 à 17h00' },
+};
+
+// Retourne le libellé d'un créneau à partir de l'heure de début
+function slotLabel(timeStart) {
+  if (!timeStart) return '';
+  const s = SLOT_MAP[timeStart];
+  return s ? s.label : timeStart;
+}
+
+function updateTimesFromSlot() {
+  const sel = document.getElementById('f-slot');
+  if (!sel || !sel.value) return;
+  const [start, end] = sel.value.split('|');
+  document.getElementById('f-time-start').value = start;
+  document.getElementById('f-time-end').value   = end;
+}
+
+// Sélectionne le créneau dans le dropdown à partir d'une heure de début
+function setSlotFromTime(timeStart) {
+  const sel = document.getElementById('f-slot');
+  if (!sel) return;
+  // Chercher l'option dont la valeur commence par timeStart
+  Array.from(sel.options).forEach(opt => {
+    if (opt.value.startsWith(timeStart + '|')) {
+      sel.value = opt.value;
+      updateTimesFromSlot();
+    }
+  });
+}
+
+function toggleOtherTeacher(cb) {
+  document.getElementById('f-other-teacher').style.display=cb.checked?'block':'none';
+}
+
+function expandDates(rec) {
+  const dates=[], start=new Date(rec.dateStart), end=rec.dateEnd?new Date(rec.dateEnd):new Date(rec.dateStart);
+  for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1)) dates.push(isoDate(new Date(d)));
+  return dates;
+}
+
+function checkConflicts(rec) {
+  return reservations.filter(r=>{
+    if(r.id===rec.id||r.resource!==rec.resource) return false;
+    const d1=expandDates(rec), d2=expandDates(r);
+    if(!d1.some(d=>d2.includes(d))) return false;
+    if(rec.duration==='heure'&&r.duration==='heure')
+      return rec.dateStart===r.dateStart&&rec.timeStart<r.timeEnd&&rec.timeEnd>r.timeStart;
+    return true;
+  });
+}
+
+async function saveReservation() {
+  const duration  = document.getElementById('f-duration').value.trim();
+  const dateStart = document.getElementById('f-date-start').value.trim();
+  const dateEnd   = document.getElementById('f-date-end').value.trim();
+  const notes     = document.getElementById('f-notes').value.trim();
+
+  if (!duration || !dateStart) {
+    alert('Veuillez renseigner la durée et la date.'); return;
+  }
+
+  // ── Ressources sélectionnées ──
+  const resourceIds = Array.from(document.querySelectorAll('#resources-group input[type=checkbox]:checked'))
+    .map(cb => cb.value);
+  if (!resourceIds.length) { alert('Veuillez sélectionner au moins une ressource.'); return; }
+
+  // ── Créneaux horaires sélectionnés (mode heure) ──
+  let selectedSlots = [];
+  if (duration === 'heure') {
+    selectedSlots = Array.from(document.querySelectorAll('#slots-group input[type=checkbox]:checked'))
+      .map(cb => { const [s, e] = cb.value.split('|'); return { timeStart: s, timeEnd: e }; });
+    if (!selectedSlots.length) { alert('Veuillez sélectionner au moins un créneau horaire.'); return; }
+  } else {
+    selectedSlots = [{ timeStart: null, timeEnd: null }];
+  }
+
+  // ── Classes ──
+  const classes = Array.from(document.querySelectorAll('#classes-group input[type=checkbox]:checked'))
+    .map(cb => cb.value);
+  if (!classes.length) { alert('Veuillez sélectionner au moins une classe.'); return; }
+
+  // ── Professeurs ──
+  let teachers = Array.from(document.querySelectorAll('#teachers-group input[type=checkbox]:checked'))
+    .map(cb => cb.value).filter(v => v && v !== 'on' && v !== 'true');
+  const otherCb = document.getElementById('cb-other-teacher');
+  if (otherCb && otherCb.checked) {
+    const o = (document.getElementById('f-other-teacher')?.value || '').trim();
+    if (o) teachers.push(o);
+  }
+  if (!teachers.length) { alert('Veuillez sélectionner au moins un professeur.'); return; }
+
+  // ══ Mode ÉDITION : une seule réservation mise à jour ══
+  if (editingId) {
+    const resource  = resourceIds[0];
+    const slot      = selectedSlots[0];
+    const rec = {
+      id: editingId,
+      resource, duration, dateStart,
+      dateEnd:   duration === 'semaine' ? (dateEnd || dateStart) : dateStart,
+      timeStart: duration === 'heure' ? slot.timeStart : null,
+      timeEnd:   duration === 'heure' ? slot.timeEnd   : null,
+      classes, teachers, notes,
+      createdAt: reservations.find(r => r.id === editingId)?.createdAt || new Date().toISOString()
+    };
+    const conflicts = checkConflicts(rec);
+    if (conflicts.length) {
+      const msgs = conflicts.map(c => { const res = getResources().find(r => r.id === c.resource); return (res ? res.name : c.resource) + ' le ' + c.dateStart + (c.timeStart ? ' à ' + c.timeStart : ''); }).join('|');
+      if (!confirm('Conflit detecte !\n' + msgs.split('|').join('\n') + '\n\nEnregistrer quand meme ?')) return;
+    }
+    closeModal();
+    showToast('✏️', 'Réservation modifiée');
+    await fbSave(rec);
+    return;
+  }
+
+  // ══ Mode CRÉATION : génération de toutes les combinaisons ══
+  // Combinaisons : N ressources × M créneaux = N×M réservations
+  const toCreate = [];
+  for (const slot of selectedSlots) {
+    for (const resourceId of resourceIds) {
+      const rec = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+        resource:  resourceId,
+        duration,
+        dateStart,
+        dateEnd:   duration === 'semaine' ? (dateEnd || dateStart) : dateStart,
+        timeStart: duration === 'heure' ? slot.timeStart : null,
+        timeEnd:   duration === 'heure' ? slot.timeEnd   : null,
+        classes, teachers, notes,
+        createdAt: new Date().toISOString()
+      };
+      toCreate.push(rec);
+    }
+  }
+
+  // Vérifier les conflits pour toutes les réservations
+  const allConflicts = [];
+  for (const rec of toCreate) {
+    const cf = checkConflicts(rec);
+    if (cf.length) allConflicts.push({ rec, cf });
+  }
+  if (allConflicts.length) {
+    const ar = getResources();
+    const msgs = allConflicts.map(({ rec, cf }) => {
+      const resName = (ar.find(r => r.id === rec.resource) || {}).name || rec.resource;
+      const slotLbl = rec.timeStart ? (SLOT_MAP[rec.timeStart] ? SLOT_MAP[rec.timeStart].label : rec.timeStart) : '';
+      return resName + (slotLbl ? ' - ' + slotLbl : '') + ' le ' + rec.dateStart;
+    }).join('\n');
+    if (!confirm(allConflicts.length + ' conflit(s) detecte(s) :\n' + msgs + '\n\nEnregistrer quand meme ?')) return;
+  }
+
+  // Fermer modale et sauvegarder
+  const n = toCreate.length;
+  closeModal();
+  showToast('✅', `${n} réservation${n > 1 ? 's' : ''} créée${n > 1 ? 's' : ''}`);
+
+  for (const rec of toCreate) {
+    await fbSave(rec);
+  }
+
+  // Un seul e-mail récapitulatif pour toute la session de réservation
+  sendEmailSummary(toCreate, classes, teachers, notes);
+}
+
+// ─── SUPPRESSION RÉSERVATION ──────────────────────────────
+function deleteRes(id) {
+  if(!confirm('Supprimer cette réservation ?')) return;
+  fbDelete(id);
+  showToast('🗑️','Réservation supprimée');
+}
+
+// ─── EMAIL ────────────────────────────────────────────────
+function getEmailConfig() {
+  try {
+    const d = localStorage.getItem('spt-email-config');
+    if (d) {
+      const cfg = JSON.parse(d);
+      // Vérification : si c'est un objet valide avec au moins un serviceId
+      if (cfg && typeof cfg === 'object') return cfg;
+    }
+  } catch(e) {}
+  return { enabled: false, serviceId: '', templateId: '', pubkey: '', from: '' };
+}
+// ─── NOTIFICATION E-MAIL RÉCAPITULATIVE ───────────────────
+// Envoie UN SEUL e-mail par professeur résumant toute la session
+// (N créneaux × M ressources en une seule notification)
+function sendEmailSummary(toCreate, classes, teachers, notes) {
+  const cfg = getEmailConfig();
+  if (!cfg.enabled || !cfg.serviceId || !cfg.templateId || !cfg.pubkey) return;
+  if (!toCreate || !toCreate.length) return;
+
+  // Vérifier que le SDK EmailJS est chargé
+  if (typeof emailjs === 'undefined') {
+    console.warn('EmailJS SDK non disponible — notification annulée');
+    showToast('⚠️', 'SDK EmailJS non chargé — vérifiez la connexion internet');
+    return;
+  }
+  try { emailjs.init(cfg.pubkey); } catch(e) {
+    console.warn('EmailJS init failed:', e); return;
+  }
+
+  const allT    = getTeachers().filter(t => t.active !== false);
+  const allRes  = getResources();
+
+  // ── Formater les dates en français ──────────────────────
+  const fmtDate = iso => {
+    if (!iso) return '';
+    return new Date(iso + 'T12:00').toLocaleDateString('fr-FR', {
+      weekday:'long', day:'numeric', month:'long', year:'numeric'
+    });
+  };
+
+  // ── Construire le récapitulatif de session ───────────────
+  // Date (toutes les réservations ont la même date dans une session)
+  const dateStart = toCreate[0].dateStart;
+  const dateEnd   = toCreate[0].dateEnd;
+  const duration  = toCreate[0].duration;
+  const dateDebut = fmtDate(dateStart);
+  const dateFin   = dateEnd && dateEnd !== dateStart ? fmtDate(dateEnd) : '';
+
+  const dateLabel = duration === 'semaine'
+    ? 'Du ' + dateDebut + ' au ' + dateFin
+    : dateDebut;
+
+  // Créneaux uniques — dédoublonnés et triés
+  const slotsSet = new Set();
+  toCreate.forEach(r => { if (r.timeStart) slotsSet.add(r.timeStart); });
+  const slotsLabels = [...slotsSet]
+    .sort()
+    .map(ts => slotLabel(ts))
+    .join(' · ');
+
+  // Ressources uniques — dédoublonnées
+  const resIds = [...new Set(toCreate.map(r => r.resource))];
+  const resLabels = resIds.map(id => {
+    const r = allRes.find(x => x.id === id);
+    return r ? r.icon + ' ' + r.name : id;
+  }).join(' + ');
+
+  // Durée lisible
+  const dl = { heure:'1 heure de cours', journee:'Journée complète', semaine:'Semaine complète' };
+  const dureeLabel = dl[duration] || duration;
+
+  // Nombre total de réservations créées
+  const total = toCreate.length;
+  const nbCreneaux  = slotsSet.size || 1;
+  const nbRessources = resIds.length;
+  const totalLabel = total > 1
+    ? total + ' réservations (' + nbCreneaux + ' créneau' + (nbCreneaux > 1 ? 'x' : '') +
+      ' × ' + nbRessources + ' ressource' + (nbRessources > 1 ? 's' : '') + ')'
+    : '1 réservation';
+
+  // Auteur(s) de la session
+  const auteurs = (teachers || []).join(', ');
+
+  // Classes concernées
+  const classeLabel = (classes || []).join(', ');
+
+  // Numéro de session basé sur la première réservation
+  const numSession = toCreate[0].id ? toCreate[0].id.toUpperCase().slice(-6) : '–';
+
+  // ── Destinataires : TOUS les profs avec e-mail ───────────
+  const destinataires = allT.filter(t => t.email && t.email.trim() !== '');
+  const skipped       = allT.filter(t => !t.email || t.email.trim() === '').map(t => t.name);
+
+  if (skipped.length) {
+    console.warn('Profs sans adresse (non notifiés) :', skipped.join(', '));
+  }
+  if (!destinataires.length) {
+    console.warn('Aucun professeur avec adresse e-mail configurée.');
+    return;
+  }
+
+  let sent = 0;
+
+  destinataires.forEach(t => {
+    const estAuteur = (teachers || []).includes(t.name);
+    const contexte  = estAuteur
+      ? 'Votre session de réservation a bien été enregistrée.'
+      : 'Une session de réservation a été effectuée par ' + auteurs +
+        '. Vous êtes informé(e) pour la coordination pédagogique.';
+
+    emailjs.send(cfg.serviceId, cfg.templateId, {
+      // Destinataire
+      to_email:       t.email,
+      to_name:        t.name,
+      from_email:     cfg.from || 'salle-techno@stpierre-nantes.fr',
+      // Contexte
+      contexte:       contexte,
+      auteur:         auteurs,
+      num_resa:       numSession,
+      // Récapitulatif de session (plusieurs créneaux + ressources)
+      resource:       resLabels,
+      resource_desc:  nbRessources + ' ressource' + (nbRessources > 1 ? 's' : ''),
+      duree:          dureeLabel,
+      date:           dateLabel,
+      date_debut:     dateDebut,
+      date_fin:       dateFin || dateDebut,
+      slot:           slotsLabels,
+      total_resa:     totalLabel,
+      // Pédagogie
+      classe:         classeLabel,
+      profs:          auteurs,
+      notes:          notes || '–',
+      etablissement:  'Collège Saint-Pierre',
+      ville:          'Nantes',
+    })
+    .then(() => {
+      sent++;
+      console.log('Récap envoyé à', t.email);
+      if (sent === destinataires.length) {
+        const msg = sent + ' notification' + (sent > 1 ? 's' : '') + ' envoyée' + (sent > 1 ? 's' : '');
+        showToast('📧', msg + (skipped.length ? ' — ' + skipped.length + ' sans adresse' : ''));
+      }
+    })
+    .catch(e => {
+      console.warn('EmailJS erreur pour', t.email, ':', e);
+      showToast('⚠️', 'Erreur e-mail → ' + t.name);
+    });
+  });
+}
+
+
+
+// ─── STATISTIQUES ────────────────────────────────────────
+function renderStats() {
+  const allRes=getResources();
+  const yearSel=document.getElementById('stats-year'); if(!yearSel) return;
+  const years=[...new Set(reservations.map(r=>new Date(r.dateStart).getFullYear()))];
+  if(!years.includes(new Date().getFullYear())) years.push(new Date().getFullYear());
+  years.sort((a,b)=>b-a);
+  const selYear=parseInt(yearSel.value)||years[0];
+  yearSel.innerHTML=years.map(y=>'<option value="'+y+'" '+(y===selYear?'selected':'')+'>'+y+'</option>').join('');
+  const filtered=reservations.filter(r=>new Date(r.dateStart).getFullYear()===selYear);
+  const cls=new Set(), tch=new Set();
+  filtered.forEach(r=>{(r.classes||[]).forEach(c=>cls.add(c));(r.teachers||[]).forEach(t=>tch.add(t));});
+  document.getElementById('stats-kpi').innerHTML=
+    '<div class="stat-card"><div class="label">Réservations '+selYear+'</div><div class="value">'+filtered.length+'</div></div>'+
+    '<div class="stat-card"><div class="label">Classes impliquées</div><div class="value">'+cls.size+'</div></div>'+
+    '<div class="stat-card"><div class="label">Professeurs actifs</div><div class="value">'+tch.size+'</div></div>'+
+    '<div class="stat-card"><div class="label">Créneaux 1h réservés</div><div class="value">'+filtered.filter(r=>r.duration==='heure').length+'</div></div>';
+  function barChart(data,colors){
+    const max=Math.max(...Object.values(data),1);
+    return Object.entries(data).sort((a,b)=>b[1]-a[1]).map(([label,count],i)=>{
+      const pct=Math.round(count/max*100);
+      const color=Array.isArray(colors)?colors[i%colors.length]:colors;
+      return '<div class="bar-chart-row">'+
+        '<div class="bar-label" title="'+label+'">'+label+'</div>'+
+        '<div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;background:'+color+'"></div></div>'+
+        '<div class="bar-count">'+count+'</div></div>';
+    }).join('')||'<div style="color:var(--muted);font-size:.85rem;padding:.4rem 0">Aucune donnée</div>';
+  }
+  const byRes={};allRes.forEach(r=>byRes[r.name]=0);
+  filtered.forEach(r=>{const rr=allRes.find(x=>x.id===r.resource);if(rr)byRes[rr.name]=(byRes[rr.name]||0)+1;});
+  document.getElementById('chart-resource').innerHTML=barChart(Object.fromEntries(allRes.map(r=>[r.name,byRes[r.name]||0])),allRes.map(r=>(COLOR_MAP[r.color]||COLOR_MAP.blue).css));
+  const byClass={};filtered.forEach(r=>(r.classes||[]).forEach(c=>byClass[c]=(byClass[c]||0)+1));
+  document.getElementById('chart-class').innerHTML=barChart(byClass,'var(--mid)');
+  const byTeach={};filtered.forEach(r=>(r.teachers||[]).forEach(t=>byTeach[t]=(byTeach[t]||0)+1));
+  document.getElementById('chart-teacher').innerHTML=barChart(byTeach,'var(--blue)');
+  const byMonth={};
+  MONTHS_FR.forEach(m=>byMonth[m.charAt(0).toUpperCase()+m.slice(1)]=0);
+  filtered.forEach(r=>{const m=new Date(r.dateStart).getMonth();const k=MONTHS_FR[m].charAt(0).toUpperCase()+MONTHS_FR[m].slice(1);byMonth[k]++;});
+  document.getElementById('chart-month').innerHTML=barChart(byMonth,'var(--green)');
+}
+
+function exportPDF() {
+  const allRes=getResources(), sorted=[...reservations].sort((a,b)=>a.dateStart>b.dateStart?1:-1);
+  const DUR={heure:'1h cours',journee:'Journée',semaine:'Semaine'};
+  const rows=sorted.map(r=>{
+    const res=allRes.find(x=>x.id===r.resource);
+    const ds=r.duration==='semaine'?r.dateStart+' → '+(r.dateEnd||r.dateStart):r.dateStart+(r.timeStart?' — '+slotLabel(r.timeStart):'');
+    return '<tr><td>'+ds+'</td><td>'+(res?res.icon+' '+res.name:r.resource)+'</td>'+
+      '<td>'+(DUR[r.duration]||r.duration)+'</td><td>'+(r.classes||[]).join(', ')+'</td>'+
+      '<td>'+(r.teachers||[]).join(', ')+'</td><td>'+(r.notes||'–')+'</td></tr>';
+  }).join('');
+  const win=window.open('','_blank');
+  win.document.write('<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Réservations – Collège Saint-Pierre</title>'+
+    '<style>body{font-family:Arial,sans-serif;font-size:11px;color:#1e2640;margin:20px}h1{font-size:15px;margin-bottom:4px;color:#1a1a2e}'+
+    'p.sub{color:#6b7a99;font-size:10px;margin-bottom:14px}table{width:100%;border-collapse:collapse}'+
+    'th{background:#1a1a2e;color:white;padding:6px 8px;text-align:left;font-size:10px;text-transform:uppercase}'+
+    'td{padding:5px 8px;border-bottom:1px solid #e2e8f0;vertical-align:top}tr:nth-child(even)td{background:#f4f6fb}'+
+    '.footer{margin-top:16px;font-size:9px;color:#999;text-align:center}</style></head><body>'+
+    '<h1>Salle de Technologie – Collège Saint-Pierre</h1>'+
+    '<p class="sub">Édité le '+new Date().toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+'</p>'+
+    '<table><thead><tr><th>Date / Créneau</th><th>Ressource</th><th>Durée</th><th>Classe(s)</th><th>Professeur(s)</th><th>Notes</th></tr></thead>'+
+    '<tbody>'+rows+'</tbody></table>'+
+    '<div class="footer">Collège Saint-Pierre – '+reservations.length+' réservation(s)</div></body></html>');
+  win.document.close(); setTimeout(()=>win.print(),400);
+}
+
+// ─── PARAMÈTRES ADMIN ────────────────────────────────────
+function openSettings() {
+  document.getElementById('pw-gate').style.display='flex';
+  document.getElementById('settings-content').style.display='none';
+  document.getElementById('pw-input').value='';
+  document.getElementById('pw-error').style.display='none';
+  document.getElementById('settings-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('pw-input').focus(),300);
+}
+function closeSettings()         { document.getElementById('settings-overlay').classList.remove('open'); }
+function closeSettingsOutside(e) { if(e.target===document.getElementById('settings-overlay')) closeSettings(); }
+
+function checkPw() {
+  if(document.getElementById('pw-input').value===getAdminPw()){
+    document.getElementById('pw-gate').style.display='none';
+    document.getElementById('settings-content').style.display='flex';
+    renderSettingsClasses(); renderSettingsProfs(); renderSettingsResources();
+    loadEmailConfigUI(); loadFbConfigUI();
+  } else {
+    document.getElementById('pw-error').style.display='block';
+    document.getElementById('pw-input').value='';
+    document.getElementById('pw-input').focus();
+  }
+}
+
+function switchStab(name,el) {
+  document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.spanel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('spanel-'+name).classList.add('active');
+}
+
+// ── Classes ──
+function renderSettingsClasses() {
+  const arr=getClasses();
+  document.getElementById('classes-settings-list').innerHTML=arr.length?arr.map((c,i)=>
+    '<div class="settings-item '+(c.active===false?'inactive':'')+'">'+
+    '<div class="settings-item-icon">🏫</div>'+
+    '<div class="settings-item-info"><div class="settings-item-name">'+c.name+'</div></div>'+
+    '<div class="settings-item-actions">'+
+    '<label class="toggle-switch"><input type="checkbox" '+(c.active!==false?'checked':'')+
+    ' onchange="toggleClass('+i+',this.checked)"><span class="toggle-track"></span></label>'+
+    '<button class="icon-btn edit" onclick="editClass('+i+')">✏️</button>'+
+    '<button class="icon-btn del" onclick="deleteClass('+i+')">🗑️</button></div></div>'
+  ).join(''):'<div style="padding:.8rem 1rem;color:var(--muted);font-size:.88rem">Aucune classe.</div>';
+}
+function toggleAddClass(show) {
+  document.getElementById('add-class-form').style.display=show===false?'none':'block';
+  if(show!==false) setTimeout(()=>document.getElementById('new-class-input').focus(),50);
+}
+function toggleClass(i,active)  { const a=getClasses();a[i].active=active;saveClasses(a);renderSettingsClasses(); }
+function saveNewClass() {
+  const val=document.getElementById('new-class-input').value.trim();if(!val)return;
+  const a=getClasses();if(a.find(c=>c.name===val)){alert('Classe déjà existante.');return;}
+  a.push({name:val,active:true});saveClasses(a);
+  document.getElementById('new-class-input').value='';toggleAddClass(false);renderSettingsClasses();
+  showToast('✅','Classe "'+val+'" ajoutée');
+}
+function editClass(i)   {const a=getClasses();const n=prompt('Renommer :',a[i].name);if(!n||n.trim()===a[i].name)return;a[i].name=n.trim();saveClasses(a);renderSettingsClasses();showToast('✏️','Classe renommée');}
+function deleteClass(i) {const a=getClasses();if(!confirm('Supprimer "'+a[i].name+'" ?'))return;a.splice(i,1);saveClasses(a);renderSettingsClasses();showToast('🗑️','Classe supprimée');}
+
+// ── Professeurs ──
+function renderSettingsProfs() {
+  const arr=getTeachers();
+  document.getElementById('profs-settings-list').innerHTML=arr.length?arr.map((t,i)=>
+    '<div class="settings-item '+(t.active===false?'inactive':'')+'">'+
+    '<div class="settings-item-icon">👩‍🏫</div>'+
+    '<div class="settings-item-info">'+
+    '<div class="settings-item-name">'+t.name+'</div>'+
+    '<div class="settings-item-sub">📧 '+(t.email||'—')+'</div></div>'+
+    '<div class="settings-item-actions">'+
+    '<label class="toggle-switch"><input type="checkbox" '+(t.active!==false?'checked':'')+
+    ' onchange="toggleTeacher('+i+',this.checked)"><span class="toggle-track"></span></label>'+
+    '<button class="icon-btn edit" onclick="editProf('+i+')">✏️</button>'+
+    '<button class="icon-btn del" onclick="deleteProf('+i+')">🗑️</button></div></div>'
+  ).join(''):'<div style="padding:.8rem 1rem;color:var(--muted);font-size:.88rem">Aucun professeur. Cliquez sur + pour en ajouter.</div>';
+}
+function toggleAddProf(show) {document.getElementById('add-prof-form').style.display=show===false?'none':'block';if(show!==false)setTimeout(()=>document.getElementById('new-prof-name').focus(),50);}
+function toggleTeacher(i,active) {const a=getTeachers();a[i].active=active;saveTeachers(a);renderSettingsProfs();}
+function saveNewProf() {
+  const name = document.getElementById('new-prof-name').value.trim();
+  const email = document.getElementById('new-prof-email-user').value.trim().toLowerCase();
+  if (!name) { alert('Le nom est obligatoire.'); return; }
+  const a = getTeachers();
+  if (a.find(t => t.name === name)) { alert('Professeur déjà existant.'); return; }
+  // Stocker l'adresse telle que saisie (domaine libre)
+  a.push({ name, email: email || '', active: true });
+  saveTeachers(a);
+  document.getElementById('new-prof-name').value = '';
+  document.getElementById('new-prof-email-user').value = '';
+  toggleAddProf(false);
+  renderSettingsProfs();
+  showToast('✅', 'Professeur "' + name + '" ajouté' + (email ? ' (' + email + ')' : ' — sans e-mail'));
+}
+function editProf(i)   {const a=getTeachers();const n=prompt('Nom :',a[i].name);if(!n)return;a[i].name=n.trim();const e=prompt('Email :',a[i].email);if(e!==null)a[i].email=e.trim();saveTeachers(a);renderSettingsProfs();showToast('✏️','Professeur modifié');}
+function deleteProf(i) {const a=getTeachers();if(!confirm('Supprimer "'+a[i].name+'" ?'))return;a.splice(i,1);saveTeachers(a);renderSettingsProfs();showToast('🗑️','Professeur supprimé');}
+
+// ── Ressources ──
+let selectedNewColor='blue';
+function pickColor(el) {document.querySelectorAll('#new-res-color-picker .color-swatch').forEach(s=>s.classList.remove('selected'));el.classList.add('selected');selectedNewColor=el.dataset.color;}
+function renderSettingsResources() {
+  const arr=getResources();
+  document.getElementById('resources-settings-list').innerHTML=arr.length?arr.map((r,i)=>{
+    const cm=COLOR_MAP[r.color]||COLOR_MAP.blue;
+    return '<div class="settings-item '+(r.active===false?'inactive':'')+'">'+
+      '<div class="settings-item-icon" style="background:rgba('+cm.r+',.15);font-size:1.2rem">'+r.icon+'</div>'+
+      '<div class="settings-item-info"><div class="settings-item-name">'+r.name+'</div>'+
+      '<div class="settings-item-sub">'+r.desc+'</div></div>'+
+      '<div class="settings-item-actions">'+
+      '<label class="toggle-switch"><input type="checkbox" '+(r.active!==false?'checked':'')+
+      ' onchange="toggleResource('+i+',this.checked)"><span class="toggle-track"></span></label>'+
+      '<button class="icon-btn edit" onclick="editResource('+i+')">✏️</button>'+
+      '<button class="icon-btn del" onclick="deleteResource('+i+')">🗑️</button></div></div>';
+  }).join(''):'<div style="padding:.8rem 1rem;color:var(--muted);font-size:.88rem">Aucune ressource.</div>';
+}
+function toggleAddResource(show) {document.getElementById('add-resource-form').style.display=show===false?'none':'block';if(show!==false)setTimeout(()=>document.getElementById('new-res-name').focus(),50);}
+function toggleResource(i,active) {const a=getResources();a[i].active=active;saveResources(a);renderSettingsResources();}
+function saveNewResource() {
+  const name=document.getElementById('new-res-name').value.trim();
+  const icon=document.getElementById('new-res-icon').value.trim()||'🔧';
+  const desc=document.getElementById('new-res-desc').value.trim();
+  if(!name){alert('Le nom est obligatoire.');return;}
+  const a=getResources(),id='res-'+Date.now().toString(36);
+  a.push({id,name,icon,color:selectedNewColor,desc,active:true});saveResources(a);
+  document.getElementById('new-res-name').value='';document.getElementById('new-res-icon').value='';document.getElementById('new-res-desc').value='';
+  toggleAddResource(false);renderSettingsResources();showToast('✅','Ressource "'+name+'" ajoutée');
+}
+function editResource(i)   {const a=getResources();const n=prompt('Nom :',a[i].name);if(!n)return;a[i].name=n.trim();const d=prompt('Description :',a[i].desc);if(d!==null)a[i].desc=d.trim();saveResources(a);renderSettingsResources();showToast('✏️','Ressource modifiée');}
+function deleteResource(i) {const a=getResources();if(!confirm('Supprimer "'+a[i].name+'" ?'))return;a.splice(i,1);saveResources(a);renderSettingsResources();showToast('🗑️','Ressource supprimée');}
+
+// ── Email config ──
+function loadEmailConfigUI() {
+  const cfg = getEmailConfig();
+  const toggle = document.getElementById('email-enabled-toggle');
+  if (toggle) toggle.checked = cfg.enabled;
+  document.getElementById('ejs-service').value  = cfg.serviceId  || '';
+  document.getElementById('ejs-template').value = cfg.templateId || '';
+  document.getElementById('ejs-pubkey').value   = cfg.pubkey     || '';
+  document.getElementById('ejs-from').value     = cfg.from       || '';
+
+  // Indicateur d'état de la configuration
+  const msg = document.getElementById('ejs-save-msg');
+  if (msg) {
+    const isConfigured = cfg.enabled && cfg.serviceId && cfg.templateId && cfg.pubkey;
+    if (isConfigured) {
+      msg.style.display = 'block';
+      msg.style.color   = 'var(--green)';
+      msg.textContent   = '✅ Configuration active — notifications activées sur tous les postes.';
+    } else if (!cfg.enabled) {
+      msg.style.display = 'block';
+      msg.style.color   = 'var(--muted)';
+      msg.textContent   = '⏸️ Notifications désactivées (toggle inactif).';
+    } else {
+      msg.style.display = 'block';
+      msg.style.color   = 'var(--orange)';
+      msg.textContent   = '⚠️ Configuration incomplète — renseignez Service ID, Template ID et Public Key.';
+    }
+  }
+}
+function saveEmailConfig() {
+  const cfg = {
+    enabled:    document.getElementById('email-enabled-toggle').checked,
+    serviceId:  document.getElementById('ejs-service').value.trim(),
+    templateId: document.getElementById('ejs-template').value.trim(),
+    pubkey:     document.getElementById('ejs-pubkey').value.trim(),
+    from:       document.getElementById('ejs-from').value.trim()
+  };
+  // Sauvegarde locale
+  localStorage.setItem('spt-email-config', JSON.stringify(cfg));
+  // Synchronisation Firestore — comme classes/profs/ressources
+  // pour que TOUS les postes utilisent la même configuration email
+  fbSaveSettings('email_config', cfg);
+
+  const msg = document.getElementById('ejs-save-msg');
+  msg.style.display = 'block';
+  msg.style.color   = 'var(--green)';
+  msg.textContent   = '✅ Configuration enregistrée et synchronisée sur tous les postes.';
+  showToast('💾', 'Configuration e-mail sauvegardée');
+}
+function testEmail() {
+  const cfg = getEmailConfig();
+  if (!cfg.serviceId || !cfg.templateId || !cfg.pubkey) {
+    alert('Complétez la configuration EmailJS (Service ID, Template ID, Public Key).'); return;
+  }
+  // Utiliser l'adresse de l'admin comme destinataire par défaut
+  const defaultTo = cfg.from || '';
+  const to = prompt('Adresse e-mail de test :', defaultTo);
+  if (!to || !to.trim()) {
+    alert('Veuillez saisir une adresse e-mail valide.'); return;
+  }
+  const toTrim = to.trim();
+  // Vérification basique du format e-mail
+  if (!toTrim.includes('@') || !toTrim.includes('.')) {
+    alert('Format d\'adresse invalide : ' + toTrim); return;
+  }
+  try { emailjs.init(cfg.pubkey); } catch(e) { return; }
+  const today = new Date().toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  // Envoyer avec TOUTES les variables du template
+  emailjs.send(cfg.serviceId, cfg.templateId, {
+    to_email:      toTrim,
+    to_name:       'Professeur Test',
+    from_email:    cfg.from || toTrim,
+    // Variables de contexte
+    contexte:      'Ceci est un e-mail de test. Votre configuration EmailJS fonctionne correctement.',
+    auteur:        'Administrateur',
+    num_resa:      'TEST01',
+    // Détails réservation factices
+    resource:      '🖨️ Imprimante 3D Ultimaker 2+',
+    resource_desc: 'Impression FDM haute qualité – filaments PLA, ABS, Nylon',
+    duree:         '1 heure de cours',
+    date:          today + ' — H1 – 8h30 à 9h25',
+    date_debut:    today,
+    date_fin:      today,
+    slot:          'H1 – 8h30 à 9h25',
+    classe:        '5ème A',
+    profs:         'Administrateur',
+    notes:         'E-mail de test — configuration EmailJS Collège Saint-Pierre.',
+    etablissement: 'Collège Saint-Pierre',
+    ville:         'Nantes',
+  })
+  .then(() => {
+    showToast('📧', 'Test envoyé à ' + toTrim);
+    alert('✅ E-mail de test envoyé à ' + toTrim + '\n\nSi vous ne le recevez pas dans 2 minutes, vérifiez :\n• Vos spams\n• Le champ "To Email" du template EmailJS (doit être {{to_email}})');
+  })
+  .catch(e => {
+    const msg = e.text || e.message || JSON.stringify(e);
+    alert('❌ Erreur EmailJS : ' + msg + '\n\nVérifiez que le champ "To Email" de votre template est bien réglé sur {{to_email}} dans les paramètres du template sur emailjs.com.');
+  });
+}
+
+// ── Firebase config UI ──
+function loadFbConfigUI() {
+  const cfg=getFbConfig();
+  const toggle=document.getElementById('fb-enabled-toggle');if(toggle)toggle.checked=true;
+  document.getElementById('fb-apikey').value       =cfg.apiKey       ||'';
+  document.getElementById('fb-projectid').value    =cfg.projectId    ||'';
+  document.getElementById('fb-authdomain').value   =cfg.authDomain   ||'';
+  document.getElementById('fb-storagebucket').value=cfg.storageBucket||'';
+  const st=document.getElementById('fb-status');
+  if(st) st.textContent=fbDB?'🟢 Connecté en temps réel':'🔴 Non connecté';
+}
+async function saveFbConfig() {
+  const cfg={
+    apiKey:        document.getElementById('fb-apikey').value.trim(),
+    projectId:     document.getElementById('fb-projectid').value.trim(),
+    authDomain:    document.getElementById('fb-authdomain').value.trim(),
+    storageBucket: document.getElementById('fb-storagebucket').value.trim()
+  };
+  localStorage.setItem('spt-firebase-config',JSON.stringify(cfg));
+  const msg=document.getElementById('fb-save-msg');
+  msg.style.display='block';
+  if(cfg.apiKey&&cfg.projectId){
+    msg.style.color='var(--blue)';msg.textContent='Connexion en cours...';
+    if(fbUnsub){fbUnsub();fbUnsub=null;}
+    if(fbSettingsUnsub){fbSettingsUnsub();fbSettingsUnsub=null;}
+    fbDB=null;fbApp=null;fbInitRetries=0;
+    initFirebase();
+    let waited=0;
+    const check=setInterval(()=>{
+      waited+=300;
+      if(fbDB){clearInterval(check);msg.style.color='var(--green)';msg.textContent='Connecté à Firebase !';showToast('🔥','Firebase connecté');}
+      else if(waited>=5000){clearInterval(check);msg.style.color='var(--orange)';msg.textContent='Echec. Vérifiez vos clés Firebase.';}
+    },300);
+  } else {
+    msg.style.color='var(--muted)';msg.textContent='Renseignez au minimum l\'API Key et le Project ID.';
+  }
+}
+
+// ── Sécurité ──
+function changePw() {
+  const cur=document.getElementById('pw-current').value,nw=document.getElementById('pw-new').value,conf=document.getElementById('pw-confirm').value;
+  const msg=document.getElementById('pw-change-msg');
+  if(cur!==getAdminPw()){msg.style.display='block';msg.style.color='var(--orange)';msg.textContent='Mot de passe actuel incorrect.';return;}
+  if(nw.length<6){msg.style.display='block';msg.style.color='var(--orange)';msg.textContent='Minimum 6 caractères.';return;}
+  if(nw!==conf){msg.style.display='block';msg.style.color='var(--orange)';msg.textContent='Les mots de passe ne correspondent pas.';return;}
+  localStorage.setItem('spt-admin-pw',nw);
+  document.getElementById('pw-current').value=document.getElementById('pw-new').value=document.getElementById('pw-confirm').value='';
+  msg.style.display='block';msg.style.color='var(--green)';msg.textContent='Mot de passe mis à jour.';
+  showToast('🔐','Mot de passe modifié');
+}
+async function clearAllReservations() {
+  if(!confirm('IRREVERSIBLE. Supprimer TOUTES les réservations ?')) return;
+  reservations=[];
+  localStorage.setItem('spt-reservations','[]');
+  if(fbDB){
+    try{const snap=await fbDB.collection('reservations').get();const batch=fbDB.batch();snap.docs.forEach(d=>batch.delete(d.ref));await batch.commit();}catch(e){console.error(e);}
+  }
+  refreshAll();showToast('🗑️','Toutes les réservations supprimées');
+}
+async function resetSettings() {
+  if(!confirm('Remettre classes, professeurs et ressources par défaut ?')) return;
+  localStorage.removeItem('spt-classes');localStorage.removeItem('spt-teachers');localStorage.removeItem('spt-resources');
+  if(fbDB){
+    try{await fbSaveSettings('classes',JSON.parse(JSON.stringify(DEFAULT_CLASSES)));await fbSaveSettings('teachers',JSON.parse(JSON.stringify(DEFAULT_TEACHERS)));await fbSaveSettings('resources',JSON.parse(JSON.stringify(DEFAULT_RESOURCES)));}catch(e){console.error(e);}
+  }
+  renderSettingsClasses();renderSettingsProfs();renderSettingsResources();refreshAll();
+  showToast('🔄','Paramètres réinitialisés');
+}
+
+// ─── TOAST ────────────────────────────────────────────────
+function showToast(icon, msg) {
+  document.getElementById('toast-icon').textContent=icon;
+  document.getElementById('toast-msg').textContent=msg;
+  const t=document.getElementById('toast');
+  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+// ─── INITIALISATION ───────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  localStorage.removeItem('spt-reservations');
+  const storedFb=localStorage.getItem('spt-firebase-config');
+  if(!storedFb||!JSON.parse(storedFb||'{}').apiKey){
+    localStorage.setItem('spt-firebase-config',JSON.stringify(FIREBASE_CFG));
+  }
+  reservations=[];
+
+  // Badge Firebase dans le header
+  const hr=document.querySelector('.header-right');
+  if(hr){
+    const badge=document.createElement('span');
+    badge.id='fb-header-badge';badge.textContent='Connexion...';
+    badge.style.cssText='font-size:.72rem;font-weight:600;padding:.3rem .7rem;border-radius:20px;background:rgba(255,255,255,.1);color:rgba(255,255,255,.5);font-family:Outfit,sans-serif;letter-spacing:.3px;transition:all .3s';
+    badge.title='Mode de stockage';
+    hr.insertBefore(badge,hr.firstChild);
+  }
+
+  // Rendu initial
+  renderWeek();renderResources();renderTable();renderMonth();renderStats();updateStats();
+
+  // Connexion Firebase
+  setTimeout(initFirebase,300);
+
+  // Reconnexion automatique
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible'&&!fbDB){fbInitRetries=0;setTimeout(initFirebase,300);}
+  });
+  window.addEventListener('online',()=>{if(!fbDB){fbInitRetries=0;setFbBadge('connecting');setTimeout(initFirebase,1000);}});
+  window.addEventListener('offline',()=>setFbBadge('local'));
+});
+
+</script>
+</body>
+</html>
