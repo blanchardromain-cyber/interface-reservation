@@ -1476,9 +1476,7 @@
     var msg = r && r.code ? (r.code + ' — ' + (r.message||'')) : (r && r.message ? r.message : String(r));
     log('Promise rejetée: ' + msg);
   });
-  // Infos contextuelles d'aide au support
-  log('URL: ' + (location.protocol + '//' + (location.host||'(local)') + location.pathname));
-  log('UA: ' + (navigator.userAgent||'?').slice(0,140));
+  // Le panneau reste masqué jusqu'à la 1ère erreur Firebase (cf. handlers ci-dessus).
 })();
 </script>
 
